@@ -46,11 +46,8 @@ jobs:
         working-directory: infra
         run: terraform plan -no-color -out=tfplan
 
-      - name: Stage Terraform changes
-        run: |
-          # Adiciona apenas arquivos .tf, excluindo artefatos gerados como lambda zip
-          git add infra/*.tf || echo "No Terraform files changed"
-          git add infra/**/*.tf || echo "No Terraform files changed"
+      - name: Stage all changes
+        run: git add -A
 
       - name: Commit changes
         run: |
