@@ -49,6 +49,7 @@ jobs:
       - name: Create Pull Request to main
         uses: peter-evans/create-pull-request@v5
         with:
+          token: ${{ secrets.GH_PAT }}
           branch: ${{ github.ref_name }}
           base: main
           title: "Terraform Plan Validation - ${{ github.ref_name }}"
