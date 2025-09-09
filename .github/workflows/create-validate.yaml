@@ -50,15 +50,15 @@ jobs:
         working-directory: infra
         run: terraform plan -no-color
 
-      - name: Create Pull Request to main
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GH_PAT }}
-          branch: ${{ github.ref_name }}
+    #   - name: Create Pull Request to main
+    #     uses: peter-evans/create-pull-request@v5
+    #     with:
+    #       token: ${{ secrets.GH_PAT }}
+    #       branch: ${{ github.ref_name }}
           
-          base: main
-          title: "Terraform Plan Validation - ${{ github.ref_name }}"
-          body: |
-            ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
-            This PR proposes merging it into **main**.
-          commit-message: "[create-pull-request] include all changes"
+    #       base: main
+    #       title: "Terraform Plan Validation - ${{ github.ref_name }}"
+    #       body: |
+    #         ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
+    #         This PR proposes merging it into **main**.
+    #       commit-message: "[create-pull-request] include all changes"
