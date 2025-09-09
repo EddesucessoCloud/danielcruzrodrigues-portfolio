@@ -9,8 +9,11 @@ env:
   AWS_REGION: "us-east-1" # Altere se necessário
 
 permissions:
-  id-token: write
-  contents: write   # necessário para criar PR
+  contents: write
+  pull-requests: write
+  repository-projects: write
+
+  
 
 jobs:
   validate-terraform:
