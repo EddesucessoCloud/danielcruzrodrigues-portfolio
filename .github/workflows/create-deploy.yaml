@@ -59,13 +59,14 @@ jobs:
         id: tf_outputs
         working-directory: infra
         run: |
-          url=$(terraform output -raw cloudfront_domain_name | tr -d '\n')
+          url=$(terraform output -raw cloudfront_domain_name 2>/dev/null | tr -d '\n' | xargs)
           echo "CLOUDFRONT_URL=$url" >> $GITHUB_ENV
 
       - name: Add CloudFront URL to Workflow Summary
         run: |
           echo "### 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
           echo "Your site is live at: [https://${CLOUDFRONT_URL}](https://${CLOUDFRONT_URL})" >> $GITHUB_STEP_SUMMARY
+
 
 
 
