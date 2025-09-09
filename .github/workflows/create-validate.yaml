@@ -1,4 +1,4 @@
-name: Validate Terraform Plan
+name: Validate Terraform Plan and Create PR
 
 on:
   push:
@@ -6,24 +6,20 @@ on:
       - "feature/**"
 
 env:
-  AWS_REGION: "us-east-1" # Altere se necessário
+  AWS_REGION: "us-east-1"
 
 permissions:
   id-token: write
-  contents: write   # necessário para criar PR
-
-  
+  contents: write
 
 jobs:
-  validate-terraform:
+  validate-and-pr:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-            token: ${{ secrets.GH_PAT }}
-
-        
+          token: ${{ secrets.GH_PAT }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1.7.0
@@ -48,17 +44,29 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra
-        run: terraform plan -no-color
+        run: terraform plan -no-color -out=tfplan
 
-    #   - name: Create Pull Request to main
-    #     uses: peter-evans/create-pull-request@v5
-    #     with:
-    #       token: ${{ secrets.GH_PAT }}
-    #       branch: ${{ github.ref_name }}
-          
-    #       base: main
-    #       title: "Terraform Plan Validation - ${{ github.ref_name }}"
-    #       body: |
-    #         ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
-    #         This PR proposes merging it into **main**.
-    #       commit-message: "[create-pull-request] include all changes"
+      - name: Stage Terraform changes
+        run: |
+          # Adiciona apenas arquivos .tf, excluindo artefatos gerados como lambda zip
+          git add infra/*.tf || echo "No Terraform files changed"
+          git add infra/**/*.tf || echo "No Terraform files changed"
+
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "[create-pull-request] Terraform changes" || echo "No changes to commit"
+
+      - name: Create Pull Request to main
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GH_PAT }}
+          branch: ${{ github.ref_name }}
+          base: main
+          title: "Terraform Plan Validation - ${{ github.ref_name }}"
+          body: |
+            ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
+            This PR proposes merging it into **main**.
+          commit-message: "[create-pull-request] include Terraform changes"
+          labels: terraform, automated-pr
