@@ -5,12 +5,12 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: "us-east-1" # Altere para sua região
-  S3_BUCKET: "daniel-resumewebsite" # Altere para o bucket do seu site
+  AWS_REGION: "us-east-1" 
+  S3_BUCKET: "daniel-resumewebsite" 
 
 permissions:
-  id-token: write   # Necessário para OIDC
-  contents: read    # Necessário para checkout
+  id-token: write
+  contents: read    
 
 jobs:
   deploy:
