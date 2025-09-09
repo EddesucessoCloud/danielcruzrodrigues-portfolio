@@ -16,11 +16,13 @@ jobs:
   validate-and-pr:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
 
+      # 2️⃣ Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1.7.0
         with:
@@ -31,6 +33,7 @@ jobs:
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
@@ -46,27 +49,39 @@ jobs:
         working-directory: infra
         run: terraform plan -no-color -out=tfplan
 
+      # 4️⃣ Determinar branch atual
+      - name: Set branch name
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      # 5️⃣ Instalar GitHub CLI
       - name: Install GitHub CLI
-        run: sudo apt-get install gh -y
+        run: sudo apt-get update && sudo apt-get install gh -y
 
       - name: Authenticate GitHub CLI
         run: gh auth login --with-token <<< "${{ secrets.GH_PAT }}"
 
+      # 6️⃣ Stage e commit de todas as mudanças
       - name: Stage all changes
-        run: git add -A  
+        run: git add -A
+
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git commit -m "[Automated] Update infrastructure and assets" || echo "No changes to commit"  
-      - name: Push branch
-        run: git push origin ${{ github.ref_name }}
+          git commit -m "[Automated] Update infrastructure and assets" || echo "No changes to commit"
 
+      # 7️⃣ Push da branch atual
+      - name: Push branch
+        run: git push origin ${{ env.BRANCH_NAME }}
+
+      # 8️⃣ Criar Pull Request automaticamente
       - name: Create Pull Request
         run: |
-            gh pr create \
+          gh pr create \
             --base main \
-            --head ${{ github.ref_name }} \
+            --head ${{ env.BRANCH_NAME }} \
             --title "Automated PR: Terraform + all changes" \
-            --body "This PR includes all changes from branch `${{ github.ref_name }}`" \
-            --reviewer "@your-team" || echo "PR already exists"
+            --body "This PR includes all changes from branch `${{ env.BRANCH_NAME }}`" \
+            || echo "PR already exists"
