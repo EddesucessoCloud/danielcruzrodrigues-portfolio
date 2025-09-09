@@ -60,10 +60,12 @@ jobs:
         working-directory: infra
         run: |
           url=$(terraform output -raw cloudfront_domain_name | tr -d '\n')
-          echo "cloudfront_url=$url" >> $GITHUB_ENV
+          echo "cloudfront_url=${url}" >> $GITHUB_ENV
+
 
       - name: Add CloudFront URL to Workflow Summary
         run: |
           echo "### 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
           echo "Your site is live at: [https://${{ env.cloudfront_url }}](https://${{ env.cloudfront_url }})" >> $GITHUB_STEP_SUMMARY
+
 
