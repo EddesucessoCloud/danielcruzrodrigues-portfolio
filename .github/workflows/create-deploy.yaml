@@ -3,8 +3,6 @@ name: Deploy Portfolio with Terraform
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 env:
   AWS_REGION: "us-east-1" # Altere para sua região
@@ -61,7 +59,7 @@ jobs:
         id: tf_outputs
         working-directory: infra
         run: |
-          url=$(terraform output -raw cloudfront_domain_name)
+          url=$(terraform output -raw cloudfront_domain_name | tr -d '\n')
           echo "cloudfront_url=$url" >> $GITHUB_ENV
 
       - name: Add CloudFront URL to Workflow Summary
