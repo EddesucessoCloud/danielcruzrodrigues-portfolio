@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://danielportfolio.eddesucesso.tech/sitemap.xml

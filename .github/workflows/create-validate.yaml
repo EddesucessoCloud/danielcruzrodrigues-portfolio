@@ -1,0 +1,64 @@
+name: Validate Terraform Plan
+
+on:
+  push:
+    branches:
+      - "feature/**"
+
+env:
+  AWS_REGION: "us-east-1" # Altere se necessário
+
+permissions:
+  id-token: write
+  contents: write   # necessário para criar PR
+
+  
+
+jobs:
+  validate-terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+            token: ${{ secrets.GH_PAT }}
+
+        
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::211125482456:role/GitHubAction-AssumeRoleWithAction
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: infra
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -no-color
+
+    #   - name: Create Pull Request to main
+    #     uses: peter-evans/create-pull-request@v5
+    #     with:
+    #       token: ${{ secrets.GH_PAT }}
+    #       branch: ${{ github.ref_name }}
+          
+    #       base: main
+    #       title: "Terraform Plan Validation - ${{ github.ref_name }}"
+    #       body: |
+    #         ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
+    #         This PR proposes merging it into **main**.
+    #       commit-message: "[create-pull-request] include all changes"

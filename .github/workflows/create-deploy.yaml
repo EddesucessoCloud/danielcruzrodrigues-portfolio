@@ -1,0 +1,71 @@
+name: Deploy Portfolio with Terraform
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: "us-east-1" # Altere para sua região
+  S3_BUCKET: "daniel-resumewebsite" # Altere para o bucket do seu site
+
+permissions:
+  id-token: write   # Necessário para OIDC
+  contents: read    # Necessário para checkout
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::211125482456:role/GitHubAction-AssumeRoleWithAction
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      - name: Upload static site files to S3
+        run: |
+          aws s3 cp assets s3://${{ env.S3_BUCKET }}/assets --recursive
+          aws s3 cp images s3://${{ env.S3_BUCKET }}/images --recursive
+          aws s3 cp draw.io s3://${{ env.S3_BUCKET }}/draw.io --recursive
+          aws s3 cp index.html s3://${{ env.S3_BUCKET }}/index.html
+          aws s3 cp favicon.ico s3://${{ env.S3_BUCKET }}/favicon.ico
+          aws s3 cp sitemap.xml s3://${{ env.S3_BUCKET }}/sitemap.xml
+          aws s3 cp site.webmanifest s3://${{ env.S3_BUCKET }}/site.webmanifest
+          aws s3 cp robots.txt s3://${{ env.S3_BUCKET }}/robots.txt
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve
+      
+      - name: Terraform Outputs
+        id: tf_outputs
+        working-directory: infra
+        run: |
+          url=$(terraform output -raw cloudfront_domain_name)
+          echo "cloudfront_url=$url" >> $GITHUB_ENV
+
+      - name: Add CloudFront URL to Workflow Summary
+        run: |
+          echo "### 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "Your site is live at: [https://${{ env.cloudfront_url }}](https://${{ env.cloudfront_url }})" >> $GITHUB_STEP_SUMMARY
+
