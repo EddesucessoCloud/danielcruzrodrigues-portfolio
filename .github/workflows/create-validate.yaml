@@ -9,9 +9,8 @@ env:
   AWS_REGION: "us-east-1" # Altere se necessário
 
 permissions:
-  contents: write
-  pull-requests: write
-  repository-projects: write
+  id-token: write
+  contents: write   # necessário para criar PR
 
   
 
