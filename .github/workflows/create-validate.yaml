@@ -46,24 +46,24 @@ jobs:
         working-directory: infra
         run: terraform plan -no-color -out=tfplan
 
-    #   - name: Stage all changes
-    #     run: git add -A
+      - name: Stage all changes
+        run: git add -A
 
-    #   - name: Commit changes
-    #     run: |
-    #       git config user.name "GitHub Actions"
-    #       git config user.email "actions@github.com"
-    #       git commit -m "[create-pull-request] Terraform changes" || echo "No changes to commit"
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "[create-pull-request] Terraform changes" || echo "No changes to commit"
 
-    #   - name: Create Pull Request to main
-    #     uses: peter-evans/create-pull-request@v5
-    #     with:
-    #       token: ${{ secrets.GH_PAT }}
-    #       branch: ${{ github.ref_name }}
-    #       base: main
-    #       title: "Terraform Plan Validation - ${{ github.ref_name }}"
-    #       body: |
-    #         ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
-    #         This PR proposes merging it into **main**.
-    #       commit-message: "[create-pull-request] include Terraform changes"
-    #       labels: terraform, automated-pr
+      - name: Create Pull Request to main
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GH_PAT }}
+          branch: ${{ github.ref_name }}
+          base: main
+          title: "Terraform Plan Validation - ${{ github.ref_name }}"
+          body: |
+            ✅ Terraform plan ran successfully on branch `${{ github.ref_name }}`.
+            This PR proposes merging it into **main**.
+          commit-message: "[create-pull-request] include Terraform changes"
+          labels: terraform, automated-pr
