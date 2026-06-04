@@ -22,3 +22,18 @@ import {
   to = aws_dynamodb_table.visitor_count_ddb
   id = "visitor_count_ddb"
 }
+
+import {
+  to = aws_dynamodb_table_item.visitor_count_ddb
+  id = "visitor_count_ddb|id|Visits"
+}
+
+import {
+  to = aws_lambda_function.terraform_lambda_func
+  id = "terraform_lambda_func"
+}
+
+import {
+  to = aws_cloudfront_origin_access_control.oac
+  id = "E6WLMVVOZXIPH"
+}
