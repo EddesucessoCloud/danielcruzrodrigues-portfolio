@@ -22,20 +22,3 @@ resource "aws_dynamodb_table" "visitor_count_ddb" {
 
   tags = local.tags
 }
-
-# DynamoDB Table Item
-resource "aws_dynamodb_table_item" "visitor_count_ddb" {
-  table_name = aws_dynamodb_table.visitor_count_ddb.name
-  hash_key   = aws_dynamodb_table.visitor_count_ddb.hash_key
-
-  item = <<ITEM
-{
-  "id": {"S": "Visits"},
-  "visitor_count": {"N": "1"}
-}
-ITEM
-  lifecycle {
-    ignore_changes = all
-  }
-
-}
