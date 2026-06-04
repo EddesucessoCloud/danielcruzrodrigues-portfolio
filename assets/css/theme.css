@@ -1,0 +1,112 @@
+/* =====================================================
+   Design System — Tailwind v4 @theme tokens
+   Single source of truth for the data/tech-themed design system.
+   Phase 1 (Build Foundation & Design System). See 01-UI-SPEC.md.
+   No raw hex in component CSS — always reference these tokens.
+
+   NOTE: Tailwind is imported WITHOUT Preflight during the migration so the
+   existing Dimension theme (main.css) styling stays intact. Preflight + full
+   reskin to utilities lands later in Phase 1 once sections are migrated.
+   ===================================================== */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* `static` forces ALL tokens to emit to :root even when no utility references
+   them yet — required during the transition so components can use var(--token). */
+@theme static {
+  /* ── Color — Surfaces (60/30/10 split) ─────────────── */
+  --color-bg:                  #080e1c;
+  --color-bg-surface:          rgba(8, 16, 28, 0.85);
+  --color-bg-surface-hover:    rgba(255, 255, 255, 0.07);
+  --color-surface:             rgba(255, 255, 255, 0.04);
+
+  /* ── Color — Text ──────────────────────────────────── */
+  --color-text-primary:        #e8edf3;
+  --color-text-dim:            #b8c7d4;
+  --color-text-muted:          #7a8fa3;
+
+  /* ── Color — Accent (cyan=chrome, green=data, amber=education only) ── */
+  --color-accent-cyan:         #5bbad5;
+  --color-accent-cyan-dim:     rgba(91, 186, 213, 0.12);
+  --color-accent-cyan-border:  rgba(91, 186, 213, 0.25);
+  --color-accent-cyan-hover:   rgba(91, 186, 213, 0.40);
+  --color-accent-green:        #10d5a0;
+  --color-accent-green-dim:    rgba(16, 213, 160, 0.10);
+  --color-accent-green-border: rgba(16, 213, 160, 0.30);
+  --color-accent-amber:        #f59e0b;
+  --color-accent-amber-dim:    rgba(245, 158, 11, 0.12);
+  --color-destructive:         #f87171;
+
+  /* ── Color — Borders ───────────────────────────────── */
+  --color-border:              rgba(91, 186, 213, 0.16);
+  --color-border-cyan:         rgba(91, 186, 213, 0.25);
+  --color-border-green:        rgba(16, 213, 160, 0.30);
+
+  /* ── Typography — Font families ────────────────────── */
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Typography — Size scale (Inter: 4 sizes; JetBrains Mono: 1 display size) ── */
+  --font-size-sm:          0.875rem;  /* 14px — body copy + label/meta via uppercase+tracking */
+  --font-size-base:        1rem;      /* 16px — UI medium */
+  --font-size-lg:          1.25rem;   /* 20px — card headings */
+  --font-size-xl:          1.75rem;   /* 28px — section display */
+  --font-size-metric:      clamp(2rem, 5vw, 3.5rem); /* KPI numbers — JetBrains Mono only */
+
+  /* ── Typography — Weights (2 per family: Inter 400/700; JetBrains Mono 400/800) ── */
+  --font-weight-regular:   400;  /* Inter + JetBrains Mono body */
+  --font-weight-bold:      700;  /* Inter headings, labels, uppercase meta */
+  --font-weight-extrabold: 800;  /* JetBrains Mono KPI display only */
+
+  /* ── Typography — Line heights ─────────────────────── */
+  --line-height-tight:     1.2;   /* headings */
+  --line-height-snug:      1.4;   /* labels */
+  --line-height-base:      1.5;   /* UI medium */
+  --line-height-relaxed:   1.7;   /* body copy */
+
+  /* ── Spacing scale (4px base) ──────────────────────── */
+  --spacing-1:   0.25rem;   /* 4px */
+  --spacing-2:   0.5rem;    /* 8px */
+  --spacing-3:   0.75rem;   /* 12px */
+  --spacing-4:   1rem;      /* 16px */
+  --spacing-6:   1.5rem;    /* 24px */
+  --spacing-8:   2rem;      /* 32px */
+  --spacing-12:  3rem;      /* 48px */
+  --spacing-16:  4rem;      /* 64px */
+
+  /* ── Border radius ─────────────────────────────────── */
+  --radius-xs:   5px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-pill: 999px;
+
+  /* ── Layout ────────────────────────────────────────── */
+  --max-width-content: 72rem;    /* 1152px */
+  --max-width-narrow:  52rem;    /* 832px */
+
+  /* ── Animation timing ──────────────────────────────── */
+  --duration-fast:       150ms;
+  --duration-base:       300ms;
+  --duration-slow:       600ms;
+  --duration-countup:    2000ms;
+  --ease-out-expo:       cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-standard:       cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Z-index scale ─────────────────────────────────── */
+  --z-base:     0;
+  --z-raised:   10;
+  --z-dropdown: 20;
+  --z-sticky:   30;
+  --z-fixed:    40;
+  --z-overlay:  50;
+}
+
+/* ── Reduced-motion override (first line of defense; Phase 2 GSAP also checks matchMedia) ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

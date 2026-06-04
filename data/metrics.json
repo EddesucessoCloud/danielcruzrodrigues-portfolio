@@ -1,0 +1,37 @@
+{
+  "_comment": "Curated, hand-editable impact metrics. Update values here; markup reads them via metrics-loader.js (data-metric-id). All values are static/curated — no backend.",
+  "metrics": [
+    {
+      "id": "engineers-mentored",
+      "value": "10+",
+      "label": "Engineers Mentored",
+      "aria": "More than 10 engineers mentored"
+    },
+    {
+      "id": "aws-certifications",
+      "value": "6",
+      "label": "AWS Certifications",
+      "aria": "6 AWS certifications"
+    },
+    {
+      "id": "pipeline-speed",
+      "value": "10×",
+      "label": "Faster Pipelines",
+      "aria": "Up to 10 times faster data pipelines",
+      "_note": "Spark/Glue/Databricks optimizations — representative jobs cut from 1-6 hours down to minutes (confirmed 2026-06-03)."
+    },
+    {
+      "id": "data-scale",
+      "value": "20M+",
+      "label": "Records / Day",
+      "aria": "More than 20 million records processed per day"
+    },
+    {
+      "id": "cost-savings",
+      "value": ">$6k",
+      "label": "Avg. Savings / Project",
+      "aria": "More than 6 thousand dollars average cost savings per project",
+      "_note": "Average AWS/cloud cost reduction per optimization project."
+    }
+  ]
+}

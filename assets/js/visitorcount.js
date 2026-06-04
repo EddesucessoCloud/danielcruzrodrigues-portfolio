@@ -17,7 +17,7 @@ async function get_visitors() {
     return data;
   } catch (err) {
     console.error("Visitor count fetch failed:", err);
-    visitorElement.textContent = "N/A";
+    visitorElement.textContent = "—";
     visitorElement.classList.add("loaded");
   }
 }
