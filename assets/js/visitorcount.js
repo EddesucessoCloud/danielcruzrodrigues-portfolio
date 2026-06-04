@@ -13,7 +13,6 @@ async function get_visitors() {
     visitorElement.textContent = data["count"];
     visitorElement.classList.add("loaded");
 
-    console.log("Visitor count:", data);
     return data;
   } catch (err) {
     console.error("Visitor count fetch failed:", err);

@@ -49,3 +49,5 @@ CLAUDE.md
 # Node / Vite build
 node_modules/
 dist/
+
+**/codebase/**

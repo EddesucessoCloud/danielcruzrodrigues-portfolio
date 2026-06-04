@@ -10,7 +10,7 @@ import "../css/theme.css";
 
 // Behavior (all vanilla — no jQuery).
 import { initNav } from "./nav.js";
-import { initMetrics } from "./metrics-loader.js";
+import { initDashboard } from "./dashboard.js";
 import "./typewriter.js";
 import "./gototop.js";
 import "./contact-form.js";
@@ -19,7 +19,7 @@ import "./visitorcount.js";
 
 function boot() {
   initNav();
-  initMetrics();
+  initDashboard();
 }
 
 if (document.readyState === "loading") {

@@ -13,7 +13,6 @@ const staticAssets = [
   "robots.txt",
   "sitemap.xml",
   "site.webmanifest",
-  "assets/css/fontawesome-all.min.css",
   "assets/css/noscript.css",
 ];
 
