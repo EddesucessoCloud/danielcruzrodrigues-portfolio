@@ -5,6 +5,11 @@
 *.tfstate
 *.tfstate.*
 
+
+#Claude Files
+*.claude
+
+
 # Crash log files
 crash.log
 crash.*.log
@@ -35,3 +40,14 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# GSD planning docs (kept local-only)
+.planning/**
+
+CLAUDE.md
+
+# Node / Vite build
+node_modules/
+dist/
+
+**/codebase/**
