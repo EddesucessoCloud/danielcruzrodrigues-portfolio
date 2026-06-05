@@ -67,3 +67,8 @@ import {
   to = aws_cloudfront_distribution.website_distribution
   id = "ERMSCU31EGG4R"
 }
+
+import {
+  to = aws_cloudfront_function.rewrite_index
+  id = "rewrite-directory-index"
+}
