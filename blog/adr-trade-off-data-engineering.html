@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADRs in Data Engineering: How to Document Trade-offs Before They Cost You | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="Architecture Decision Records are the cheapest insurance policy in data engineering. Here's how I use them to document trade-offs — before a team member leaves, a migration goes sideways, or the same debate resurfaces for the third time." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/adr-trade-off-data-engineering.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="ADRs in Data Engineering: How to Document Trade-offs Before They Cost You" />
+  <meta property="og:description" content="Architecture Decision Records are the cheapest insurance policy in data engineering. Here's how I use them to document trade-offs before a team member leaves, a migration goes sideways, or the same debate resurfaces for the third time." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/adr-trade-off-data-engineering.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "ADRs in Data Engineering: How to Document Trade-offs Before They Cost You",
+    "description": "Architecture Decision Records are the cheapest insurance policy in data engineering. Here's how I use them to document trade-offs before a team member leaves, a migration goes sideways, or the same debate resurfaces for the third time.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/adr-trade-off-data-engineering.html",
+    "keywords": ["Architecture Decision Records", "ADR", "data engineering", "trade-offs", "Apache Iceberg", "AWS MWAA", "Redshift", "Kinesis", "technical documentation"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: rgba(255,255,255,0.08);
+      --text-primary: #e6edf3; --text-dim: #8b949e; --text-muted: #6e7681;
+      --accent-cyan: #5bbad5; --accent-green: #10d5a0; --accent-amber: #f59e0b;
+      --font: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+      --transition: 0.2s ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text-primary); font-family: var(--font); font-size: 16px; line-height: 1.7; }
+    a { color: var(--accent-cyan); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: #fff; text-decoration: underline; }
+    code { font-family: var(--font-mono); font-size: 0.85em; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: var(--radius-sm); }
+    pre { background: #0d1117; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; }
+    pre code { background: none; padding: 0; font-size: 0.875rem; line-height: 1.6; }
+    .site-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(13,17,23,0.95); backdrop-filter: blur(8px); z-index: 100; }
+    .logo { font-family: var(--font-mono); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.1em; color: var(--accent-cyan); }
+    nav { display: flex; gap: 1.5rem; }
+    nav a { font-size: 0.875rem; color: var(--text-dim); }
+    nav a:hover { color: var(--text-primary); text-decoration: none; }
+    .article-wrap { max-width: 820px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 700; line-height: 1.2; margin-bottom: 1rem; }
+    h2 { font-size: 1.35rem; font-weight: 700; margin: 2.5rem 0 0.75rem; color: var(--text-primary); border-left: 3px solid var(--accent-cyan); padding-left: 0.75rem; }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.75rem 0 0.5rem; color: var(--accent-green); }
+    p { margin-bottom: 1rem; color: var(--text-dim); }
+    p strong { color: var(--text-primary); }
+    ul, ol { margin: 0.75rem 0 1rem 1.5rem; color: var(--text-dim); }
+    li { margin-bottom: 0.35rem; }
+    li strong { color: var(--text-primary); }
+    blockquote { border-left: 3px solid var(--accent-amber); padding: 0.75rem 1rem; background: rgba(245,158,11,0.06); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 1.5rem 0; color: var(--text-dim); font-style: italic; }
+    .post-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 2rem; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .tag { background: rgba(91,186,213,0.1); border: 1px solid rgba(91,186,213,0.25); color: var(--accent-cyan); padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; }
+    .tag-green { background: rgba(16,213,160,0.1); border-color: rgba(16,213,160,0.25); color: var(--accent-green); }
+    .tag-amber { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: var(--accent-amber); }
+    .callout { border-radius: var(--radius-md); padding: 1rem 1.25rem; margin: 1.5rem 0; border: 1px solid; }
+    .callout-info { background: rgba(91,186,213,0.06); border-color: rgba(91,186,213,0.25); }
+    .callout-warn { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.25); }
+    .callout-tip  { background: rgba(16,213,160,0.06); border-color: rgba(16,213,160,0.25); }
+    .callout-label { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    .callout-info .callout-label { color: var(--accent-cyan); }
+    .callout-warn .callout-label { color: var(--accent-amber); }
+    .callout-tip  .callout-label { color: var(--accent-green); }
+    .callout p { margin: 0; color: var(--text-dim); }
+    .table-wrap { overflow-x: auto; margin: 1.5rem 0; border-radius: var(--radius-md); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead { background: rgba(255,255,255,0.04); }
+    th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: var(--text-primary); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.65rem 1rem; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td strong { color: var(--text-primary); }
+    td code { font-size: 0.78rem; }
+
+    /* -- Diagram -- */
+    .diagram-wrap {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin: 2rem 0;
+      overflow-x: auto;
+    }
+    .diagram-interactive {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .diagram-interactive summary {
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: '\25B6 '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: '\25BC '; }
+    .diagram-interactive .mxgraph-wrap {
+      padding: 0.5rem;
+      background: #ffffff;
+      min-height: 500px;
+    }
+    .diagram-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .author-card { display: flex; gap: 1rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-top: 3rem; }
+    .author-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #0d1117; flex-shrink: 0; }
+    .author-info { flex: 1; }
+    .author-name { font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+    footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <span class="logo">DCR // DATA</span>
+  <nav>
+    <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+  </nav>
+</header>
+
+<main class="article-wrap">
+
+  <div class="post-meta">
+    <span>Jun 5, 2026</span>
+    <span>&#183;</span>
+    <span>14 min read</span>
+    <span>&#183;</span>
+    <span class="tag">ADR</span>
+    <span class="tag-green">Trade-offs</span>
+    <span class="tag">Data Engineering</span>
+    <span class="tag-amber">Architecture</span>
+    <span class="tag">AWS</span>
+  </div>
+
+  <h1>ADRs in Data Engineering: How to Document Trade-offs Before They Cost You</h1>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>The two-week evaluation I shouldn't have had to run twice</h2>
+
+  <p>
+    We were six months into a new data platform build. The team had moved fast — Glue for ETL, Athena for ad-hoc queries, raw Parquet on S3. Then a new engineer joined and started asking the obvious question: <strong>"Why Parquet? Why not Iceberg?"</strong>
+  </p>
+  <p>
+    Good question, honestly. The problem wasn't the question — it was that nobody could answer it. The engineer who made the original call had left the company four months earlier. There was a Jira ticket from 2021 titled "Evaluate table formats" with a thread that ended in "+1 for Parquet, let's ship." That was it. No benchmark, no rejected alternatives, no written rationale.
+  </p>
+  <p>
+    So we ran the evaluation again. Two weeks. Senior engineer time. Same conclusion: stay on Parquet for now, Iceberg wasn't GA in Athena yet when the original choice was made, and at our current data volume the operational overhead wasn't justified. We wrote that up as a two-page doc in Confluence, and — I'll be honest — we didn't link it to anything. Six months later I found myself in a meeting where someone was proposing we evaluate Iceberg again.
+  </p>
+  <p>
+    <strong>This is the problem ADRs solve.</strong> Not the technical evaluation — you still have to do that. But the part where you lose the context, repeat the work, and have no way to say "we already had this conversation, here's what we decided and why, here's what would have to change for us to revisit it."
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>What an ADR actually is</h2>
+
+  <p>
+    Michael Nygard published "Documenting Architecture Decisions" in November 2011. The core idea is almost embarrassingly simple: <strong>write down the decision, the context that forced it, and the consequences you're accepting.</strong> Five fields. Immutable once accepted — you don't edit ADRs, you supersede them. That immutability is what makes the history auditable.
+  </p>
+  <p>
+    Nygard's original template:
+  </p>
+
+  <pre><code># ADR-007: Use Apache Iceberg as the Default Table Format for Bronze and Silver Zones
+
+## Status
+Accepted
+
+## Context
+The situation or forces causing this decision to be necessary.
+
+## Decision
+We will use Apache Iceberg with AWS Glue Data Catalog for all Bronze and Silver zone tables.
+
+## Consequences
+What becomes easier or harder after this decision.
+Both positive and negative — do not sugarcoat.</code></pre>
+
+  <p>
+    The community extended this with MADR (Markdown Architectural Decision Records), which adds <strong>Decision Drivers</strong>, <strong>Considered Options</strong>, and a <strong>Pros/Cons per option</strong> section. That's the format I actually use in production — the extra fields are what make an ADR genuinely useful vs. a post-hoc justification document.
+  </p>
+
+  <div class="callout callout-info">
+    <div class="callout-label">Key Property</div>
+    <p>ADRs are <strong>immutable once accepted</strong>. You don't edit them — you create a new ADR that supersedes the old one. The old ADR's status field is updated to "Superseded by ADR-019." This is what gives you a full audit trail: you can trace a decision chain from 2021 to today and see exactly what changed and why.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>Architecture: the ADR lifecycle</h2>
+
+  <div class="diagram-wrap">
+    <p class="diagram-label">// ADR Lifecycle — Data Engineering Decision Framework</p>
+
+    <img
+      src="images/adr-trade-off-data-engineering-architecture.png"
+      alt="ADR lifecycle workflow diagram: from trigger through draft, PR review, accepted and implemented, to living document with superseded feedback loop"
+      style="width:100%;max-width:1100px;display:block;margin:0 auto;border-radius:8px;background:#ffffff;padding:1rem;"
+      loading="lazy"
+    />
+
+    <!-- diagram XML: raw text in script tag avoids HTML entity processing -->
+    <script id="adr-diagram-data" type="application/json">{"nav":true,"resize":true,"toolbar":"zoom layers lightbox","edit":"_blank","xml":"<mxfile host=\"app.diagrams.net\" modified=\"2026-06-05T00:00:00.000Z\" agent=\"Claude Code\" version=\"21.0.0\" type=\"device\">\n  <diagram id=\"adr-lifecycle-diagram\" name=\"ADR Lifecycle\">\n    <mxGraphModel dx=\"1422\" dy=\"762\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"2250\" pageHeight=\"900\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n\n        <!-- BACKGROUND PANEL -->\n        <mxCell id=\"bg-panel\" value=\"\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#2d2d4e;strokeWidth=2;arcSize=3;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"20\" y=\"20\" width=\"1510\" height=\"860\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- TITLE BLOCK -->\n        <mxCell id=\"title-main\" value=\"ADR Lifecycle - Data Engineering Decision Framework\" style=\"text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#E8F4FD;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"20\" y=\"30\" width=\"1510\" height=\"36\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-sub\" value=\"From trade-off analysis to documented decision\" style=\"text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=2;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"20\" y=\"66\" width=\"1510\" height=\"24\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- STEP 1: TRIGGER -->\n        <mxCell id=\"badge-step1\" value=\"1\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"108\" y=\"130\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"label-step1\" value=\"TRIGGER\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#007CBD;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"142\" y=\"130\" width=\"80\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"node-trigger\" value=\"&lt;b&gt;Architectural Decision Needed&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Table format? Orchestrator?&lt;br/&gt;Streaming vs Batch?&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#0d2b45;strokeColor=#007CBD;strokeWidth=2;fontColor=#C9E8F8;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"60\" y=\"168\" width=\"200\" height=\"90\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- ARROW: Step 1 to Step 2 -->\n        <mxCell id=\"arrow-1-to-2\" value=\"\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#007CBD;strokeWidth=2;fillColor=#007CBD;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-trigger\" target=\"node-draft\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- STEP 2: DRAFT ADR -->\n        <mxCell id=\"badge-step2\" value=\"2\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"328\" y=\"130\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"label-step2\" value=\"DRAFT ADR\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#4A90D9;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"362\" y=\"130\" width=\"100\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"node-draft\" value=\"&lt;b&gt;Engineer Drafts ADR&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Context - Options Considered&lt;br/&gt;Trade-offs Matrix - Decision&lt;br/&gt;Consequences&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#0a2a4a;strokeColor=#4A90D9;strokeWidth=2;fontColor=#C9E8F8;fontSize=12;fontFamily=Helvetica;verticalAlign=top;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"280\" y=\"168\" width=\"200\" height=\"100\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- ARROW: Step 2 to Step 3 -->\n        <mxCell id=\"arrow-2-to-3\" value=\"\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#4A90D9;strokeWidth=2;fillColor=#4A90D9;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-draft\" target=\"node-review\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- STEP 3: REVIEW -->\n        <mxCell id=\"badge-step3\" value=\"3\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"548\" y=\"130\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"label-step3\" value=\"REVIEW\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#D4A017;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"582\" y=\"130\" width=\"80\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"node-review\" value=\"&lt;b&gt;PR Review Process&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Tech Lead + Peers&lt;br/&gt;Review Trade-off Analysis&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1f00;strokeColor=#D4A017;strokeWidth=2;fontColor=#F5D87A;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"500\" y=\"168\" width=\"200\" height=\"90\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"diamond-review\" value=\"Approved?\" style=\"rhombus;whiteSpace=wrap;html=1;fillColor=#2a1f00;strokeColor=#D4A017;strokeWidth=2;fontColor=#F5D87A;fontSize=11;fontFamily=Helvetica;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"556\" y=\"292\" width=\"88\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"arrow-review-to-diamond\" value=\"\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#D4A017;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-review\" target=\"diamond-review\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Needs revision loop back -->\n        <mxCell id=\"arrow-revision\" value=\"Needs revision\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#D4A017;strokeWidth=1.5;fillColor=#D4A017;dashed=1;dashPattern=6 4;fontSize=10;fontColor=#D4A017;fontFamily=Helvetica;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;\" edge=\"1\" source=\"diamond-review\" target=\"node-draft\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\">\n            <Array as=\"points\">\n              <mxPoint x=\"600\" y=\"430\" />\n              <mxPoint x=\"380\" y=\"430\" />\n            </Array>\n          </mxGeometry>\n        </mxCell>\n\n        <!-- Approved arrow to Step 4 -->\n        <mxCell id=\"arrow-approved\" value=\"Approved\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#22C55E;strokeWidth=2;fillColor=#22C55E;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#22C55E;fontFamily=Helvetica;\" edge=\"1\" source=\"diamond-review\" target=\"node-accepted\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- STEP 4: ACCEPTED AND IMPLEMENTED -->\n        <mxCell id=\"badge-step4\" value=\"4\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"768\" y=\"130\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"label-step4\" value=\"ACCEPTED\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#22C55E;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"802\" y=\"130\" width=\"100\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"node-accepted\" value=\"&lt;b&gt;Accepted and Implemented&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Decision executed in codebase&lt;br/&gt;ADR status = Accepted&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#062313;strokeColor=#22C55E;strokeWidth=2;fontColor=#86EFAC;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"720\" y=\"282\" width=\"200\" height=\"90\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- ARROW: Step 4 to Step 5 -->\n        <mxCell id=\"arrow-4-to-5\" value=\"\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#22C55E;strokeWidth=2;fillColor=#22C55E;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-accepted\" target=\"node-living\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- STEP 5: LIVING DOCUMENT -->\n        <mxCell id=\"badge-step5\" value=\"5\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"990\" y=\"130\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"label-step5\" value=\"LIVING DOCUMENT\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#A78BFA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1024\" y=\"130\" width=\"150\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"node-living\" value=\"&lt;b&gt;Living Document&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Periodically reviewed&lt;br/&gt;as system evolves&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#1a0a2e;strokeColor=#A78BFA;strokeWidth=2;fontColor=#DDD6FE;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"940\" y=\"282\" width=\"200\" height=\"90\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"diamond-living\" value=\"Still Valid?\" style=\"rhombus;whiteSpace=wrap;html=1;fillColor=#1a0a2e;strokeColor=#A78BFA;strokeWidth=2;fontColor=#DDD6FE;fontSize=11;fontFamily=Helvetica;verticalAlign=middle;align=center;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"996\" y=\"420\" width=\"88\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"arrow-living-to-diamond\" value=\"\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#A78BFA;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-living\" target=\"diamond-living\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Outcome: Still valid to Archive -->\n        <mxCell id=\"node-archive\" value=\"&lt;b&gt;Archive&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Stays Accepted&lt;br/&gt;Status = Archived&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#0d2b1a;strokeColor=#16a34a;strokeWidth=1.5;fontColor=#86EFAC;fontSize=11;fontFamily=Helvetica;arcSize=12;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1160\" y=\"420\" width=\"160\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"arrow-valid\" value=\"Still valid\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#16a34a;strokeWidth=1.5;fillColor=#16a34a;fontSize=10;fontColor=#86EFAC;fontFamily=Helvetica;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;\" edge=\"1\" source=\"diamond-living\" target=\"node-archive\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Outcome: Superseded -->\n        <mxCell id=\"node-superseded\" value=\"&lt;b&gt;Superseded&lt;/b&gt;&lt;br/&gt;&lt;font style=&apos;font-size:10px;&apos;&gt;Status = Superseded&lt;br/&gt;New ADR required&lt;/font&gt;\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#6B7280;strokeWidth=1.5;fontColor=#D1D5DB;fontSize=11;fontFamily=Helvetica;arcSize=12;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"996\" y=\"560\" width=\"160\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"arrow-superseded\" value=\"Superseded\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6B7280;strokeWidth=1.5;fillColor=#6B7280;fontSize=10;fontColor=#D1D5DB;fontFamily=Helvetica;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;\" edge=\"1\" source=\"diamond-living\" target=\"node-superseded\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Loop back: Superseded to Step 1 -->\n        <mxCell id=\"arrow-loop-back\" value=\"New ADR triggered\" style=\"edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6B7280;strokeWidth=1.5;dashed=1;dashPattern=8 4;fillColor=#6B7280;fontSize=10;fontColor=#9CA3AF;fontFamily=Helvetica;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;\" edge=\"1\" source=\"node-superseded\" target=\"node-trigger\" parent=\"1\">\n          <mxGeometry relative=\"1\" as=\"geometry\">\n            <Array as=\"points\">\n              <mxPoint x=\"160\" y=\"595\" />\n              <mxPoint x=\"160\" y=\"650\" />\n              <mxPoint x=\"160\" y=\"700\" />\n            </Array>\n          </mxGeometry>\n        </mxCell>\n\n        <!-- LEGEND PANEL -->\n        <mxCell id=\"legend-panel\" value=\"\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1824;strokeColor=#2d4a6e;strokeWidth=2;arcSize=3;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1560\" y=\"20\" width=\"670\" height=\"860\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title\" value=\"Step Reference\" style=\"text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#E8F4FD;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1560\" y=\"40\" width=\"670\" height=\"30\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-badge-1\" value=\"1\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1585\" y=\"110\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title-1\" value=\"TRIGGER\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#007CBD;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"108\" width=\"580\" height=\"20\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-desc-1\" value=\"A new architectural decision is needed: choosing a table format, selecting an orchestrator, or evaluating streaming vs batch ingestion. The team identifies the need and assigns an engineer to draft the ADR.\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"130\" width=\"585\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-badge-2\" value=\"2\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1585\" y=\"218\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title-2\" value=\"DRAFT ADR\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#4A90D9;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"216\" width=\"580\" height=\"20\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-desc-2\" value=\"Engineer creates an ADR markdown file capturing: Context, Options Considered, Trade-offs Matrix, Decision, and Consequences. Stored in /docs/adr/ and tracked in git.\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"238\" width=\"585\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-badge-3\" value=\"3\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1585\" y=\"326\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title-3\" value=\"REVIEW\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#D4A017;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"324\" width=\"580\" height=\"20\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-desc-3\" value=\"The ADR is submitted as a Pull Request. Tech Lead and peers review the trade-off analysis. If the analysis is incomplete, the PR is rejected and the engineer revises. Once the team aligns, the PR is merged.\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"346\" width=\"585\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-badge-4\" value=\"4\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1585\" y=\"434\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title-4\" value=\"ACCEPTED AND IMPLEMENTED\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#22C55E;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"432\" width=\"580\" height=\"20\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-desc-4\" value=\"The decision is implemented in the codebase. The ADR file header is updated to status: Accepted. The document now serves as the authoritative record explaining why the architecture is the way it is.\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"454\" width=\"585\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-badge-5\" value=\"5\" style=\"ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1585\" y=\"542\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title-5\" value=\"LIVING DOCUMENT\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#A78BFA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"540\" width=\"580\" height=\"20\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-desc-5\" value=\"ADRs are reviewed as the system evolves. If the original decision still holds, the ADR is archived. If context has changed, the ADR is marked Superseded and a new ADR is created, maintaining a full audit trail.\" style=\"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1625\" y=\"562\" width=\"585\" height=\"70\" as=\"geometry\" />\n        </mxCell>\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n"}</script>
+
+    <details class="diagram-interactive">
+      <summary>INTERACTIVE DIAGRAM — zoom &amp; pan</summary>
+      <div class="mxgraph-wrap">
+        <div id="adr-mxgraph" class="mxgraph" style="max-width:100%;"></div>
+      </div>
+    </details>
+    <script>
+      (function () {
+        var det = document.querySelector('.diagram-interactive');
+        if (!det) return;
+        det.addEventListener('toggle', function () {
+          if (det.open && !window.__drawioViewerLoaded) {
+            window.__drawioViewerLoaded = true;
+            var cfg = document.getElementById('adr-diagram-data').textContent;
+            document.getElementById('adr-mxgraph').setAttribute('data-mxgraph', cfg);
+            var s = document.createElement('script');
+            s.src = 'https://viewer.diagrams.net/js/viewer.min.js';
+            document.head.appendChild(s);
+          }
+        });
+      })();
+    </script>
+  </div>
+
+  <p>
+    The key loops in this diagram are what make the ADR lifecycle useful in practice. The revision loop at Step 3 means the trade-off analysis gets challenged before the decision is locked — not after. The supersession loop at Step 5 means the system's decision history is a chain, not a graveyard of outdated docs.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>Why data engineering needs ADRs more than most disciplines</h2>
+
+  <p>
+    In most software systems, a bad architectural decision is annoying but recoverable. You picked the wrong ORM — you refactor over a few sprints. In data engineering, the choices compound. The format you pick today determines your compaction strategy in three years. The orchestrator you pick today determines whether you can use dbt Cloud in two years. The warehouse tier you pick today shows up on the finance team's AWS bill every single month.
+  </p>
+  <p>
+    These aren't two-way doors. Most of the core infrastructure decisions in a data platform are one-way, or close to it — and one-way doors are exactly where you need the most written context, not the least.
+  </p>
+
+  <div class="callout callout-warn">
+    <div class="callout-label">The Pattern I Keep Seeing</div>
+    <p>A team migrated from self-hosted Airflow to MWAA. No ADR on the original Airflow choice. Three weeks into the MWAA migration, they discovered their DAGs used a custom PythonVirtualenvOperator that pulled packages from a private CodeArtifact endpoint — unreachable inside MWAA without a VPC endpoint configuration. Rollback cost 2 days. The original self-hosted Airflow choice had a specific rationale around that CodeArtifact dependency — nobody wrote it down, and the engineer who set it up had moved to another team.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>The four trade-off axes I document in every ADR</h2>
+
+  <h3>Axis 1: Latency vs. Cost</h3>
+  <p>
+    The clearest example in AWS data engineering is Kinesis Data Streams — standard consumers vs. Enhanced Fan-Out. Standard polling gives you shared 2 MB/s per shard across all consumers, propagation latency of 200ms to 1 second, no additional charge beyond the shard-hour. Enhanced Fan-Out (EFO) gives you dedicated 2 MB/s per registered consumer per shard, ~70ms p99 latency (AWS's documented number), at $0.015 per consumer-shard-hour plus $0.013 per GB retrieved.
+  </p>
+  <p>
+    For a 10-shard stream with 3 EFO consumers, that's roughly $108/month extra before data charges. If your SLA is "5-minute freshness," that's an expensive solution to a problem you don't have. If your SLA is "fraud detection under 100ms," EFO isn't optional — it's the only credible path. <strong>That's not an obvious call. Write it down.</strong>
+  </p>
+
+  <h3>Axis 2: Operational Complexity vs. Vendor Lock-in</h3>
+  <p>
+    Self-hosted Airflow vs. MWAA is the canonical data engineering example of this axis. Self-hosted gives you full control: any Python version, any PyPI package, GPU operators, custom executors, your own upgrade schedule. MWAA takes the operational burden away — AWS manages HA, scaling, and Airflow version upgrades — but you're on AWS's release cadence, constrained to the Python version bundled in each MWAA release (MWAA 2.8.1 ships with Python 3.11; MWAA 2.6.3 ships with Python 3.10, and you cannot mix), and you can't write to the filesystem outside <code>/tmp</code>.
+  </p>
+  <p>
+    MWAA pricing: mw1.small is ~$0.49/hr (~$358/month), mw1.medium ~$0.99/hr (~$723/month), mw1.large ~$1.99/hr (~$1,454/month). That's before worker and scheduler instances. Document the decision at the constraint level, not just the pricing level — the pricing changes, the constraints often don't.
+  </p>
+
+  <h3>Axis 3: Consistency vs. Availability</h3>
+  <p>
+    This one bites in subtle ways. DynamoDB eventually consistent reads cost 50% of the RCUs that strongly consistent reads cost — and for most use cases (a visitor counter, an analytics aggregation table, a reference data lookup) eventual consistency is completely fine. But if you're using DynamoDB for a financial ledger debit check, eventually consistent reads are a data integrity risk.
+  </p>
+  <p>
+    The same principle applies to older S3 patterns. Pre-December 2020, S3 LIST operations were eventually consistent. Teams built workarounds — DynamoDB manifests, custom <code>_SUCCESS</code> markers, sleep-before-list in Glue jobs. S3 has been strongly consistent since December 2020. Any ADR written before that date that references those workarounds should be marked Superseded. If it isn't, the workarounds stay as cargo-cult code, baffling every engineer who touches them.
+  </p>
+
+  <h3>Axis 4: Schema Flexibility vs. Query Performance</h3>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Raw Parquet on S3</th>
+          <th>Apache Iceberg</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Schema evolution</strong></td>
+          <td>Add nullable columns only; type changes require full rewrite</td>
+          <td>ACID evolution: add, drop, rename, reorder, widen — metadata-only</td>
+        </tr>
+        <tr>
+          <td><strong>Time travel</strong></td>
+          <td>Not supported natively</td>
+          <td>Snapshot-based; <code>AS OF TIMESTAMP</code> in Athena v3</td>
+        </tr>
+        <tr>
+          <td><strong>Partition evolution</strong></td>
+          <td>Re-partitioning requires full data rewrite</td>
+          <td>Hidden partitioning; partition spec change is metadata-only</td>
+        </tr>
+        <tr>
+          <td><strong>Concurrent writes</strong></td>
+          <td>No isolation; parallel jobs corrupt data without external locking</td>
+          <td>Optimistic concurrency via atomic manifest commits; MERGE INTO supported</td>
+        </tr>
+        <tr>
+          <td><strong>Metadata overhead</strong></td>
+          <td>Zero</td>
+          <td>Snapshot + manifest files; compaction required at scale</td>
+        </tr>
+        <tr>
+          <td><strong>Operational burden</strong></td>
+          <td>Near zero</td>
+          <td>Compaction scheduling, manifest management, catalog configuration</td>
+        </tr>
+        <tr>
+          <td><strong>Athena support</strong></td>
+          <td>Native, universal</td>
+          <td>Native in Athena v3 (GA November 2023)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Raw Parquet is zero operational overhead and universally readable. Iceberg costs you catalog management, engine configuration, and compaction scheduling — in exchange for ACID semantics, schema evolution without rewrites, and time travel. Those features matter enormously in regulated contexts where GDPR delete support isn't optional, and in ML serving where reproducibility is a hard requirement, not a nice-to-have.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>A real ADR: choosing Iceberg for Bronze and Silver zones</h2>
+
+  <p>
+    This is what an ADR looks like when it's actually useful — not a post-hoc justification, but a document that captures why the decision was made and what would have to change for it to be revisited.
+  </p>
+
+  <pre><code>---
+status: accepted
+date: 2024-03-15
+decision-makers: Daniel Cruz Rodrigues (Lead Data Engineer),
+                 Ana Lima (Data Architect), Carlos Mendes (Platform SRE)
+consulted: Rafael Santos (ML Engineer, primary Silver zone consumer)
+informed: VP Engineering, BI Team Lead
+---
+
+# ADR-007: Use Apache Iceberg for Bronze and Silver Zones
+
+## Context and Problem Statement
+
+Our data lake stores Bronze and Silver zone data as raw Parquet partitioned
+by ingestion_date. Over 6 months we had three production incidents:
+
+1. Concurrent write corruption (Q4 2023): Two Glue jobs writing to the same
+   Silver table simultaneously produced overlapping manifests — 14 hours of
+   data duplication before detection.
+2. Schema drift break (Jan 2024): Upstream added a non-nullable column;
+   Athena queries on Silver failed for 6 hours.
+3. GDPR delete requests (Feb 2024): Three right-to-erasure requests required
+   full partition rewrites — 280 GB of Parquet rewritten per request.
+
+We need a table format that provides ACID guarantees, schema evolution,
+and row-level deletes without full partition rewrites.
+
+## Decision Drivers
+
+* Row-level deletes (GDPR compliance, SLA: 72 hours from request to execution)
+* Native AWS Glue Data Catalog integration (migration not in scope)
+* Queryable from Athena v3, Glue 4.0, and EMR 6.x
+* Schema evolution without full data rewrite
+* Time travel for ML reproducibility
+* Team has zero prior Iceberg experience — operational complexity must be manageable
+
+## Considered Options
+
+* Option A: Apache Iceberg with Glue Catalog REST integration
+* Option B: Apache Hudi with Glue Catalog support
+* Option C: Delta Lake on EMR
+* Option D: Continue raw Parquet + DynamoDB-backed locking
+
+## Decision Outcome
+
+Chosen option: Option A — Apache Iceberg.
+
+Iceberg is the only format with native GA support in both Athena v3 (DDL + DML)
+and Glue Catalog as of Q1 2024. Delta Lake has no native Athena support without
+third-party connectors. Hudi's Athena v3 write support was still in preview at
+decision date.
+
+### Consequences
+
+* Good: MERGE INTO for GDPR deletes reduces compliance execution from ~4 hours
+  (full partition rewrite) to ~8 minutes (position delete file + async compaction).
+* Good: ACID commit protocol eliminates the concurrent-write corruption class of incidents.
+* Good: Schema evolution is metadata-only for add/widen operations.
+* Bad: Compaction runbook must be created before GA (rewrite_data_files on schedule).
+* Bad: Existing raw Parquet tables require migration scripts (estimated: 3 engineer-days).
+* Risk: If Glue Catalog Iceberg support changes API, fallback is direct Spark catalog —
+  architecturally feasible, 2-3 sprint migration.
+
+## Re-evaluate when
+
+* Glue Catalog Iceberg support becomes a paid add-on
+* Primary query engine migrates away from Athena
+* Upsert write pattern exceeds 30% of total writes (re-evaluate Hudi)</code></pre>
+
+  <div class="callout callout-tip">
+    <div class="callout-label">The "Re-evaluate when" clause</div>
+    <p>This is the most underused part of any ADR. Without explicit re-evaluation triggers, a decision either lives forever regardless of changed context, or gets re-evaluated on political whims. Write the conditions that would make the decision wrong, and let those conditions — not the calendar — trigger the next review.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>ADR status lifecycle: Proposed → Accepted → Superseded</h2>
+
+  <p>
+    Four statuses cover everything you need:
+  </p>
+  <ul>
+    <li><strong>Proposed</strong> — drafted, under review, not yet in effect</li>
+    <li><strong>Accepted</strong> — team agreed; this is the governing decision</li>
+    <li><strong>Deprecated</strong> — was valid, context no longer applies; no replacement</li>
+    <li><strong>Superseded</strong> — replaced by a newer ADR; link to the superseding one required</li>
+  </ul>
+  <p>
+    A realistic supersession chain from a data platform that has been evolving for four years:
+  </p>
+
+  <pre><code>ADR-003: Use AWS Glue ETL for all Bronze-to-Silver transforms
+  Status: Superseded by ADR-011 (2023-06-01)
+  Original date: 2021-04-10
+  Rationale: No Spark expertise on team; Glue's no-cluster model reduces ops burden.
+
+ADR-011: Replace Glue ETL with EMR Serverless for Silver-zone transforms
+  Status: Superseded by ADR-019 (2025-01-15)
+  Original date: 2023-06-01
+  Rationale: Glue DPU pricing ($0.44/DPU-hr) exceeded EMR Serverless at our scale
+  (&gt;500 DPU-hours/month). Team now has Spark expertise.
+
+ADR-019: Migrate Silver-zone transforms to Spark on EMR with REST catalog
+  Status: Accepted
+  Date: 2025-01-15
+  Rationale: Iceberg REST catalog standard enables multi-engine portability.</code></pre>
+
+  <p>
+    That's the decision audit trail that lets a new engineer in 2026 understand not just where you are, but how you got there and why you made each turn. No Jira tickets, no tribal knowledge, no "I think someone decided that in 2021."
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>Tooling: what actually works in practice</h2>
+
+  <h3>adr-tools CLI (the simplest option)</h3>
+  <p>
+    Install with <code>brew install adr-tools</code>. The commands you'll actually use:
+  </p>
+
+  <pre><code># Initialize ADR directory in your repo
+adr init doc/adr
+
+# Create a new ADR (auto-increments the number)
+adr new "Use Apache Iceberg for Bronze and Silver zones"
+
+# Create a new ADR that supersedes ADR 11
+# This automatically updates ADR-011's status field
+adr new -s 11 "Migrate Silver-zone transforms to EMR with REST catalog"
+
+# Generate a table of contents (paste into README)
+adr generate toc
+
+# Generate a Graphviz graph of supersession relationships
+adr generate graph | dot -Tsvg > decisions.svg</code></pre>
+
+  <h3>GitHub PRs as the review mechanism</h3>
+  <p>
+    This is the most pragmatic approach for most teams. Every new ADR is submitted as a PR. Reviewers comment inline on the trade-off analysis. Merge = Accepted. The PR review thread becomes the decision discussion record — timestamped, tied to reviewers, permanently linked to the commit. You get all the structure of a formal review without any tooling overhead.
+  </p>
+  <p>
+    The pattern: store ADRs at <code>docs/adr/0007-iceberg-table-format.md</code>, set branch protection requiring at least one tech lead approval before merge, and add "does this supersede an existing ADR?" as a PR checklist item.
+  </p>
+
+  <h3>Log4brains (if you want a browsable portal)</h3>
+  <p>
+    <code>npm install -g log4brains &amp;&amp; log4brains init</code> — parses your MADR-format files and generates a searchable static HTML site. Deployable to GitHub Pages or S3 + CloudFront. Useful when you have 30+ ADRs and non-engineers need to browse them without touching the repo.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>The anti-patterns that make ADRs useless</h2>
+
+  <h3>1. Decisions buried in Jira tickets</h3>
+  <p>
+    A Jira comment that says "+1 for Iceberg, let's do it" is not an ADR. Jira tickets get closed, archived, and become effectively inaccessible within 18 months. The decision context, the rejected alternatives, the specific forces that shaped the choice — all of it disappears. Symptom: team members say "I don't know why we use X" more than twice per quarter.
+  </p>
+
+  <h3>2. ADRs written after-the-fact to justify</h3>
+  <p>
+    Writing an ADR three months after implementation to satisfy a compliance audit. The forces are reconstructed from memory, rejected alternatives are omitted or strawmanned, and the consequences section is suspiciously positive. These ADRs fail their core purpose — they document the decision without capturing the deliberation. You can usually detect them by checking: is the ADR date months after the first commit that implements the decision?
+  </p>
+
+  <h3>3. Never updating status when superseded</h3>
+  <p>
+    ADR-003 says "Status: Accepted" but has been de facto replaced by ADR-011. A new engineer reads ADR-003, follows its guidance, and spends a week wondering why their Glue jobs conflict with the EMR pipelines everyone else is running. This is worse than having no ADR — it actively misleads. The <code>adr new -s N</code> command handles this automatically; without tooling, add it to your PR checklist.
+  </p>
+
+  <h3>4. No "Re-evaluate when" trigger</h3>
+  <p>
+    An ADR without explicit re-evaluation conditions lives forever, regardless of how much the context changes. Every ADR for a cost-sensitive decision should have numeric triggers: "Re-evaluate Redshift Provisioned vs. Serverless when average cluster utilization drops below 30%, or when ad-hoc queries exceed 40% of total query-hours." Without those, you're either never revisiting it or revisiting it every time a new VP asks the question.
+  </p>
+
+  <div class="callout callout-warn">
+    <div class="callout-label">The Real Cost of No ADRs</div>
+    <p>One team evaluated "Redshift Provisioned vs. Serverless" in Q1 2022 — no ADR written, same conclusion reached, nothing documented. The same evaluation ran again in Q3 2023 after a new data architect joined. Same conclusion. Same evaluation ran again in Q1 2025 when a new VP asked the question. Three evaluations, ~3 weeks of senior engineer time, zero new information produced. One ADR with a re-evaluation trigger clause would have prevented the second and third runs entirely.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <h2>Where to start</h2>
+
+  <p>
+    Don't try to backfill ADRs for every decision that was ever made. Pick the three most consequential decisions that are currently "why do we do it this way?" mysteries on your team, and write an ADR for each — even retroactively. Retroactive ADRs are better than none, as long as you're honest that you're reconstructing context rather than recording it in real time.
+  </p>
+  <p>
+    Then add "does this require an ADR?" as a standing question in your tech design process. The answer is yes any time the decision is: hard to reverse, affects multiple teams or systems, involves meaningful cost or performance trade-offs, or has a non-obvious rationale that a new team member would question within their first month.
+  </p>
+  <p>
+    The Iceberg-vs-Parquet question I described at the start? We ran that evaluation twice because we didn't write it down the first time. We ran it a third time — on paper — to write the ADR. The total cost of three evaluations was probably 5-6 engineer-weeks across the team. One good ADR and a re-evaluation trigger clause would have made that 1.5 weeks. The ADR pays for itself before the ink dries.
+  </p>
+
+  <div class="author-card">
+    <div class="author-avatar">D</div>
+    <div class="author-info">
+      <div class="author-name">Daniel Cruz Rodrigues</div>
+      <div style="font-size:0.8rem;color:var(--text-dim);">6× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+      <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+        <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+        <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues. Built with AWS S3 + CloudFront.</p>
+</footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>
