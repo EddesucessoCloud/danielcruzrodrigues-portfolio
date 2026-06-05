@@ -12,6 +12,7 @@ const staticAssets = [
   "favicon.ico",
   "robots.txt",
   "sitemap.xml",
+  "llms.txt",
   "site.webmanifest",
   "assets/css/noscript.css",
 ];
