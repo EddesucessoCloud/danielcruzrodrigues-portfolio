@@ -35,7 +35,27 @@ import {
 
 import {
   to = aws_lambda_permission.api_gw
-  id = "terraform_lambda_func/AllowExecutionFromAPIGateway"
+  id = "terraform_lambda_func/AllowExecutionFromAPIGateway-hmp06jkngg"
+}
+
+import {
+  to = aws_apigatewayv2_api.lambda
+  id = "hmp06jkngg"
+}
+
+import {
+  to = aws_apigatewayv2_stage.lambda
+  id = "hmp06jkngg/default"
+}
+
+import {
+  to = aws_apigatewayv2_integration.terraform_lambda_func
+  id = "hmp06jkngg/m5tnedp"
+}
+
+import {
+  to = aws_apigatewayv2_route.terraform_lambda_func
+  id = "hmp06jkngg/dwt6210"
 }
 
 import {
