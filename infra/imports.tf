@@ -37,3 +37,8 @@ import {
   to = aws_lambda_permission.api_gw
   id = "terraform_lambda_func/AllowExecutionFromAPIGateway"
 }
+
+import {
+  to = aws_cloudfront_response_headers_policy.security_headers
+  id = "8999a1be-6ece-4a05-8c4d-f8798e782782"
+}
