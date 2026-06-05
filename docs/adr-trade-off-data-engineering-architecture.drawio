@@ -1,0 +1,257 @@
+<mxfile host="app.diagrams.net" modified="2026-06-05T00:00:00.000Z" agent="Claude Code" version="21.0.0" type="device">
+  <diagram id="adr-lifecycle-diagram" name="ADR Lifecycle">
+    <mxGraphModel dx="1422" dy="762" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2250" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- BACKGROUND PANEL -->
+        <mxCell id="bg-panel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#2d2d4e;strokeWidth=2;arcSize=3;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="1510" height="860" as="geometry" />
+        </mxCell>
+
+        <!-- TITLE BLOCK -->
+        <mxCell id="title-main" value="ADR Lifecycle &amp;mdash; Data Engineering Decision Framework" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#E8F4FD;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="20" y="30" width="1510" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="title-sub" value="From trade-off analysis to documented decision" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=2;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="20" y="66" width="1510" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- STEP 1: TRIGGER -->
+        <mxCell id="badge-step1" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="108" y="130" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="label-step1" value="TRIGGER" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#007CBD;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="142" y="130" width="80" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node-trigger" value="&lt;b&gt;Architectural Decision Needed&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Table format? Orchestrator?&lt;br/&gt;Streaming vs Batch?&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0d2b45;strokeColor=#007CBD;strokeWidth=2;fontColor=#C9E8F8;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="60" y="168" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-trigger" value="" style="shape=mxgraph.flowchart.start_2;fillColor=#007CBD;strokeColor=#005a8e;" vertex="1" parent="1">
+          <mxGeometry x="142" y="272" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-trigger-label" value="Team / Engineer" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="100" y="312" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: Step 1 to Step 2 -->
+        <mxCell id="arrow-1-to-2" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#007CBD;strokeWidth=2;fillColor=#007CBD;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-trigger" target="node-draft" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- STEP 2: DRAFT ADR -->
+        <mxCell id="badge-step2" value="2" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="328" y="130" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="label-step2" value="DRAFT ADR" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#4A90D9;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="362" y="130" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node-draft" value="&lt;b&gt;Engineer Drafts ADR&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Context &amp;bull; Options Considered&lt;br/&gt;Trade-offs Matrix &amp;bull; Decision&lt;br/&gt;Consequences&lt;/font&gt;" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#0a2a4a;strokeColor=#4A90D9;strokeWidth=2;fontColor=#C9E8F8;fontSize=12;fontFamily=Helvetica;verticalAlign=top;align=center;" vertex="1" parent="1">
+          <mxGeometry x="280" y="168" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-draft" value="" style="shape=mxgraph.flowchart.document;fillColor=#4A90D9;strokeColor=#2d6fb5;" vertex="1" parent="1">
+          <mxGeometry x="362" y="282" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-draft-label" value="ADR Markdown File" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="320" y="322" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: Step 2 to Step 3 -->
+        <mxCell id="arrow-2-to-3" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#4A90D9;strokeWidth=2;fillColor=#4A90D9;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-draft" target="node-review" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- STEP 3: REVIEW -->
+        <mxCell id="badge-step3" value="3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="548" y="130" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="label-step3" value="REVIEW" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#D4A017;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="582" y="130" width="80" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node-review" value="&lt;b&gt;PR Review Process&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Tech Lead + Peers&lt;br/&gt;Review Trade-off Analysis&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1f00;strokeColor=#D4A017;strokeWidth=2;fontColor=#F5D87A;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="500" y="168" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="diamond-review" value="Approved?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#2a1f00;strokeColor=#D4A017;strokeWidth=2;fontColor=#F5D87A;fontSize=11;fontFamily=Helvetica;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="556" y="292" width="88" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-review-to-diamond" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#D4A017;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-review" target="diamond-review" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Needs revision loop back -->
+        <mxCell id="arrow-revision" value="Needs revision" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#D4A017;strokeWidth=1.5;fillColor=#D4A017;dashed=1;dashPattern=6 4;fontSize=10;fontColor=#D4A017;fontFamily=Helvetica;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="diamond-review" target="node-draft" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="430" />
+              <mxPoint x="380" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Approved arrow to Step 4 -->
+        <mxCell id="arrow-approved" value="Approved" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#22C55E;strokeWidth=2;fillColor=#22C55E;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#22C55E;fontFamily=Helvetica;" edge="1" source="diamond-review" target="node-accepted" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- STEP 4: ACCEPTED AND IMPLEMENTED -->
+        <mxCell id="badge-step4" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="768" y="130" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="label-step4" value="ACCEPTED" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#22C55E;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="802" y="130" width="100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node-accepted" value="&lt;b&gt;Accepted &amp;amp; Implemented&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Decision executed in codebase&lt;br/&gt;ADR status = &lt;b&gt;Accepted&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#062313;strokeColor=#22C55E;strokeWidth=2;fontColor=#86EFAC;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="720" y="282" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-accepted" value="" style="shape=mxgraph.flowchart.process;fillColor=#22C55E;strokeColor=#16a34a;" vertex="1" parent="1">
+          <mxGeometry x="802" y="386" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="icon-accepted-label" value="Implementation" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="760" y="426" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ARROW: Step 4 to Step 5 -->
+        <mxCell id="arrow-4-to-5" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#22C55E;strokeWidth=2;fillColor=#22C55E;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-accepted" target="node-living" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- STEP 5: LIVING DOCUMENT -->
+        <mxCell id="badge-step5" value="5" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="990" y="130" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="label-step5" value="LIVING DOCUMENT" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#A78BFA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1024" y="130" width="150" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node-living" value="&lt;b&gt;Living Document&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Periodically reviewed&lt;br/&gt;as system evolves&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a0a2e;strokeColor=#A78BFA;strokeWidth=2;fontColor=#DDD6FE;fontSize=12;fontFamily=Helvetica;arcSize=12;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="940" y="282" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="diamond-living" value="Still Valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#1a0a2e;strokeColor=#A78BFA;strokeWidth=2;fontColor=#DDD6FE;fontSize=11;fontFamily=Helvetica;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="996" y="420" width="88" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-living-to-diamond" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#A78BFA;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-living" target="diamond-living" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Outcome: Still valid to Archive -->
+        <mxCell id="node-archive" value="&lt;b&gt;Archive&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Stays Accepted&lt;br/&gt;Status = Archived&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0d2b1a;strokeColor=#16a34a;strokeWidth=1.5;fontColor=#86EFAC;fontSize=11;fontFamily=Helvetica;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="420" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-valid" value="Still valid" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#16a34a;strokeWidth=1.5;fillColor=#16a34a;fontSize=10;fontColor=#86EFAC;fontFamily=Helvetica;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="diamond-living" target="node-archive" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Outcome: Superseded -->
+        <mxCell id="node-superseded" value="&lt;b&gt;Superseded&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Status = Superseded&lt;br/&gt;New ADR required&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#6B7280;strokeWidth=1.5;fontColor=#D1D5DB;fontSize=11;fontFamily=Helvetica;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="996" y="560" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-superseded" value="Superseded" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6B7280;strokeWidth=1.5;fillColor=#6B7280;fontSize=10;fontColor=#D1D5DB;fontFamily=Helvetica;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="diamond-living" target="node-superseded" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Loop back: Superseded to Step 1 -->
+        <mxCell id="arrow-loop-back" value="New ADR triggered" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6B7280;strokeWidth=1.5;dashed=1;dashPattern=8 4;fillColor=#6B7280;fontSize=10;fontColor=#9CA3AF;fontFamily=Helvetica;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="node-superseded" target="node-trigger" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="595" />
+              <mxPoint x="160" y="650" />
+              <mxPoint x="160" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- LEGEND PANEL -->
+        <mxCell id="legend-panel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1824;strokeColor=#2d4a6e;strokeWidth=2;arcSize=3;" vertex="1" parent="1">
+          <mxGeometry x="1560" y="20" width="670" height="860" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Step Reference" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#E8F4FD;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1560" y="40" width="670" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-divider" value="" style="line;strokeColor=#2d4a6e;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1580" y="80" width="630" height="10" as="geometry" />
+        </mxCell>
+
+        <!-- Legend entry 1 -->
+        <mxCell id="legend-badge-1" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="110" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title-1" value="TRIGGER" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#007CBD;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="108" width="580" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-desc-1" value="A new architectural decision is needed: choosing a table format (Delta vs Iceberg), selecting an orchestrator (Airflow vs Prefect), or evaluating streaming vs batch ingestion. The team identifies the need and assigns an engineer to draft the ADR." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="130" width="585" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Legend entry 2 -->
+        <mxCell id="legend-badge-2" value="2" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="218" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title-2" value="DRAFT ADR" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#4A90D9;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="216" width="580" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-desc-2" value="Engineer creates an ADR markdown file capturing: Context (why this decision exists), Options Considered (2+ alternatives), Trade-offs Matrix (pros/cons table), Decision (the chosen option), and Consequences (impact on the system). Stored in /docs/adr/ and tracked in git." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="238" width="585" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Legend entry 3 -->
+        <mxCell id="legend-badge-3" value="3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="326" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title-3" value="REVIEW" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#D4A017;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="324" width="580" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-desc-3" value="The ADR is submitted as a Pull Request. Tech Lead and peers review the trade-off analysis. If the analysis is incomplete or the decision is contested, the PR is rejected and the engineer revises. Once reasoning is sound and the team aligns, the PR is approved." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="346" width="585" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Legend entry 4 -->
+        <mxCell id="legend-badge-4" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="434" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title-4" value="ACCEPTED AND IMPLEMENTED" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#22C55E;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="432" width="580" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-desc-4" value="The decision is implemented in the codebase. The ADR file header is updated to status: Accepted. The document now serves as the authoritative record explaining why the architecture is the way it is, protecting the team from revisiting settled debates." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="454" width="585" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Legend entry 5 -->
+        <mxCell id="legend-badge-5" value="5" style="ellipse;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=#005a8e;fontColor=#FFFFFF;fontSize=12;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="542" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title-5" value="LIVING DOCUMENT" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#A78BFA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="540" width="580" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-desc-5" value="ADRs are reviewed as the system evolves. If the original decision still holds, the ADR is archived. If context has changed or a better option emerges, the ADR is marked Superseded and a new ADR is created, maintaining a full audit trail of decisions over time." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#8B9FBA;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="562" width="585" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Legend color key -->
+        <mxCell id="legend-colorkey-title" value="Status Color Key" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1;fontColor=#E8F4FD;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="660" width="630" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="colorkey-draft" value="Draft" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0a2a4a;strokeColor=#4A90D9;strokeWidth=1.5;fontColor=#C9E8F8;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="690" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="colorkey-review" value="Review" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1f00;strokeColor=#D4A017;strokeWidth=1.5;fontColor=#F5D87A;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1695" y="690" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="colorkey-accepted" value="Accepted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#062313;strokeColor=#22C55E;strokeWidth=1.5;fontColor=#86EFAC;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1805" y="690" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="colorkey-superseded" value="Superseded" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#6B7280;strokeWidth=1.5;fontColor=#D1D5DB;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1915" y="690" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="colorkey-living" value="Living Doc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a0a2e;strokeColor=#A78BFA;strokeWidth=1.5;fontColor=#DDD6FE;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="2035" y="690" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Legend footer -->
+        <mxCell id="legend-footer" value="ADRs are immutable once Accepted. Superseded ADRs are never deleted &amp;mdash; they form the decision history of the data platform." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#6B7280;fontFamily=Helvetica;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="740" width="630" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
