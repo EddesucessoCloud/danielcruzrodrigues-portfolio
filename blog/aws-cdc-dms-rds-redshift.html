@@ -133,8 +133,8 @@
       <h1>CDC with AWS DMS: RDS to Redshift Real-Time Replication</h1>
 
       <h2>The replication lag that killed our SLA</h2>
-      <p>Our DMS task was configured with default settings and running fine in staging. Six hours after the first production cutover, the analytics team reported that their Redshift queries were returning data that was 4 hours stale. The DMS task was running. No errors in CloudWatch. The lag was invisible until we looked at the <strong>CDCLatencySource</strong> metric — it had been climbing since launch.</p>
-      <p>This is the most common DMS production failure: the task is green, replication is happening, but latency accumulates silently. This post covers the configurations, gotchas, and schema drift patterns that experience taught us the hard way.</p>
+      <p>The DMS task looked clean in staging. Default settings, no complaints, we cut over to production. About six hours in, the analytics team started pinging us — their Redshift queries were returning data from that morning. Four-hour-old data. The task was still running. CloudWatch showed green. It wasn't until someone actually pulled up <strong>CDCLatencySource</strong> that we saw it: lag had been climbing from the moment we went live.</p>
+      <p>That right there is the most common DMS failure mode in production — everything looks fine until it doesn't. The task is alive, replication is technically happening, but latency quietly piles up in the background. This post is about the configs, the LOB gotchas, and the schema drift patterns I wish we'd known before that first cutover.</p>
 
       <h2>What DMS CDC actually does (and what it doesn't)</h2>
       <p><strong>AWS Database Migration Service</strong> in CDC mode reads from the database's transaction log — the WAL in PostgreSQL — and replays those changes to the target. It does not query the source tables directly during replication. This means schema changes are not automatically captured unless you configure them explicitly.</p>
@@ -301,7 +301,7 @@ resource "aws_dms_replication_task" "rds_to_s3" {
           <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
           <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
           <div style="font-size:0.8rem;color:var(--text-dim);">
-            7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda.
+            6× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda.
             Open to senior data engineering roles internationally.
           </div>
           <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
