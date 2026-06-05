@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AWS Kinesis Real-Time Streaming: Data Streams vs Firehose in Production | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="A senior data engineer's guide to AWS Kinesis — Data Streams vs Firehose, shard sizing, Lambda integration, fan-out consumers, and building a real-time streaming pipeline on AWS." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/aws-kinesis-real-time-streaming.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="AWS Kinesis Real-Time Streaming: Data Streams vs Firehose in Production" />
+  <meta property="og:description" content="A senior data engineer's guide to AWS Kinesis — Data Streams vs Firehose, shard sizing, Lambda integration, fan-out consumers, and building a real-time streaming pipeline on AWS." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/aws-kinesis-real-time-streaming.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "AWS Kinesis Real-Time Streaming: Data Streams vs Firehose in Production",
+    "description": "A senior data engineer's guide to AWS Kinesis — Data Streams vs Firehose, shard sizing, Lambda integration, fan-out consumers, and building a real-time streaming pipeline on AWS.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/aws-kinesis-real-time-streaming.html",
+    "keywords": ["AWS Kinesis", "Kinesis Data Streams", "Kinesis Firehose", "real-time data pipeline", "streaming data engineering", "Kinesis Lambda", "data engineering AWS", "KDS vs Firehose"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:              #080e1c;
+      --surface:         rgba(255,255,255,0.04);
+      --surface-hover:   rgba(255,255,255,0.07);
+      --text-primary:    #e8edf3;
+      --text-dim:        #b8c7d4;
+      --text-muted:      #7a8fa3;
+      --accent-cyan:     #5bbad5;
+      --accent-cyan-dim: rgba(91,186,213,0.12);
+      --accent-cyan-border: rgba(91,186,213,0.25);
+      --accent-green:    #10d5a0;
+      --accent-amber:    #f59e0b;
+      --accent-purple:   #a78bfa;
+      --accent-red:      #f87171;
+      --border:          rgba(91,186,213,0.16);
+      --font-sans:       'Inter', system-ui, sans-serif;
+      --font-mono:       'JetBrains Mono', monospace;
+      --radius-sm:       8px;
+      --radius-md:       12px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.75;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent-cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(8,14,28,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 40;
+    }
+    .site-header .logo {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      color: var(--accent-cyan);
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+    .site-header nav a {
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      margin-left: 1.5rem;
+      transition: color 150ms;
+    }
+    .site-header nav a:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    /* ── Article ── */
+    .article-wrap {
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 3rem 2rem 6rem;
+    }
+
+    .article-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 0.75rem;
+    }
+
+    h1.article-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+    }
+
+    .article-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .meta-date {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .meta-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan-border);
+    }
+    .meta-tag.green {
+      background: rgba(16,213,160,0.10);
+      color: var(--accent-green);
+      border-color: rgba(16,213,160,0.30);
+    }
+    .meta-tag.amber {
+      background: rgba(245,158,11,0.10);
+      color: var(--accent-amber);
+      border-color: rgba(245,158,11,0.30);
+    }
+    .meta-read {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    /* ── Prose ── */
+    .prose h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 2.5rem 0 1rem;
+      padding-top: 0.5rem;
+    }
+    .prose h3 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      margin: 2rem 0 0.75rem;
+      font-family: var(--font-mono);
+    }
+    .prose p { color: var(--text-dim); margin-bottom: 1.25rem; }
+    .prose strong { color: var(--text-primary); font-weight: 600; }
+    .prose ul, .prose ol {
+      color: var(--text-dim);
+      padding-left: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .prose li { margin-bottom: 0.4rem; }
+
+    /* ── Code ── */
+    .prose pre {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      font-size: 0.8125rem;
+      line-height: 1.65;
+    }
+    .prose pre code {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    .prose code:not(pre code) {
+      font-family: var(--font-mono);
+      font-size: 0.875em;
+      background: rgba(91,186,213,0.10);
+      color: var(--accent-cyan);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    .code-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    /* ── Callout ── */
+    .callout {
+      background: var(--accent-cyan-dim);
+      border: 1px solid var(--accent-cyan-border);
+      border-left: 3px solid var(--accent-cyan);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      color: var(--text-dim);
+      font-size: 0.9375rem;
+    }
+    .callout.green {
+      background: rgba(16,213,160,0.07);
+      border-color: rgba(16,213,160,0.25);
+      border-left-color: var(--accent-green);
+    }
+    .callout.amber {
+      background: rgba(245,158,11,0.07);
+      border-color: rgba(245,158,11,0.25);
+      border-left-color: var(--accent-amber);
+    }
+    .callout strong { color: var(--text-primary); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    th {
+      background: rgba(91,186,213,0.10);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.65rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.65rem 1rem;
+      color: var(--text-dim);
+      border-bottom: 1px solid rgba(91,186,213,0.08);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td strong { color: var(--text-primary); }
+
+    /* ── Diagram ── */
+    .diagram-wrap {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin: 2rem 0;
+      overflow-x: auto;
+    }
+    .diagram-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      transition: color 150ms;
+    }
+    .back-link:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+    }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+
+    /* ── SVG diagram colours ── */
+    .node-sources  { fill: rgba(167,139,250,0.15); stroke: #a78bfa; }
+    .node-kds      { fill: rgba(91,186,213,0.15);  stroke: #5bbad5; }
+    .node-lambda   { fill: rgba(16,213,160,0.15);  stroke: #10d5a0; }
+    .node-firehose { fill: rgba(245,158,11,0.15);  stroke: #f59e0b; }
+    .node-s3       { fill: rgba(245,158,11,0.12);  stroke: #f59e0b; }
+    .node-process  { fill: rgba(91,186,213,0.10);  stroke: #5bbad5; }
+    .node-sink     { fill: rgba(16,213,160,0.12);  stroke: #10d5a0; }
+    .node-dynamo   { fill: rgba(248,113,113,0.12); stroke: #f87171; }
+    .svg-text      { fill: #e8edf3; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+    .svg-subtext   { fill: #7a8fa3; font-family: 'JetBrains Mono', monospace; font-size: 9px; }
+    .svg-label     { fill: #b8c7d4; font-family: 'Inter', sans-serif; font-size: 10px; }
+    .arrow         { stroke: #5bbad5; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-cyan); }
+    .arrow-green   { stroke: #10d5a0; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-green); }
+    .arrow-amber   { stroke: #f59e0b; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-amber); }
+    .section-bg    { fill: rgba(255,255,255,0.02); stroke: rgba(255,255,255,0.06); stroke-dasharray: 4 3; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+      <a href="/blog/" class="back-link"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <p class="article-eyebrow">// Real-Time Streaming</p>
+      <h1 class="article-title">AWS Kinesis Real-Time Streaming: Data Streams vs Firehose in Production</h1>
+
+      <div class="article-meta">
+        <span class="meta-date">June 5, 2026</span>
+        <span class="meta-tag">AWS Kinesis</span>
+        <span class="meta-tag green">Real-Time</span>
+        <span class="meta-tag amber">Streaming</span>
+        <span class="meta-read"><i class="fa-regular fa-clock" aria-hidden="true"></i> 13 min read</span>
+      </div>
+
+      <div class="prose">
+
+        <p>
+          Batch processing tells you what happened yesterday. Real-time streaming tells you what is happening right now — and for fraud detection, inventory management, and user personalisation, <strong>right now</strong> is the only answer that matters. AWS Kinesis is the managed streaming backbone that makes sub-second pipelines possible without running Kafka clusters at 3 AM.
+        </p>
+        <p>
+          After building Kinesis pipelines for IoT telemetry at scale and clickstream analytics processing millions of events per day, here is everything I wish I had known on day one.
+        </p>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Architecture Overview</h2>
+
+        <div class="diagram-wrap">
+          <p class="diagram-label">// AWS Kinesis Real-Time Streaming Architecture</p>
+
+          <svg viewBox="0 0 820 460" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;display:block;margin:0 auto;">
+            <defs>
+              <marker id="arrowhead-cyan" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#5bbad5"/>
+              </marker>
+              <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#10d5a0"/>
+              </marker>
+              <marker id="arrowhead-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#f59e0b"/>
+              </marker>
+            </defs>
+
+            <!-- Section: Sources -->
+            <rect x="10" y="10" width="140" height="440" rx="8" class="section-bg"/>
+            <text x="80" y="30" class="svg-subtext" text-anchor="middle">SOURCES</text>
+
+            <!-- Source nodes -->
+            <rect x="22" y="44" width="116" height="44" rx="6" class="node-sources"/>
+            <text x="80" y="62" class="svg-text" text-anchor="middle">IoT / Sensors</text>
+            <text x="80" y="78" class="svg-subtext" text-anchor="middle">MQTT / HTTP</text>
+
+            <rect x="22" y="104" width="116" height="44" rx="6" class="node-sources"/>
+            <text x="80" y="122" class="svg-text" text-anchor="middle">Clickstream</text>
+            <text x="80" y="138" class="svg-subtext" text-anchor="middle">SDK / API GW</text>
+
+            <rect x="22" y="164" width="116" height="44" rx="6" class="node-sources"/>
+            <text x="80" y="182" class="svg-text" text-anchor="middle">App Events</text>
+            <text x="80" y="198" class="svg-subtext" text-anchor="middle">PutRecord API</text>
+
+            <rect x="22" y="224" width="116" height="44" rx="6" class="node-sources"/>
+            <text x="80" y="242" class="svg-text" text-anchor="middle">DB Changes</text>
+            <text x="80" y="258" class="svg-subtext" text-anchor="middle">DMS / CDC</text>
+
+            <!-- Section: KDS -->
+            <rect x="168" y="10" width="148" height="440" rx="8" class="section-bg"/>
+            <text x="242" y="30" class="svg-subtext" text-anchor="middle">KINESIS DATA STREAMS</text>
+
+            <rect x="180" y="80" width="124" height="200" rx="8" class="node-kds"/>
+            <text x="242" y="165" class="svg-text" text-anchor="middle">KDS</text>
+            <text x="242" y="183" class="svg-subtext" text-anchor="middle">Shard 1</text>
+            <text x="242" y="198" class="svg-subtext" text-anchor="middle">Shard 2</text>
+            <text x="242" y="213" class="svg-subtext" text-anchor="middle">Shard N</text>
+            <text x="242" y="235" class="svg-subtext" text-anchor="middle">1MB/s per shard</text>
+            <text x="242" y="250" class="svg-subtext" text-anchor="middle">24h–365d retention</text>
+
+            <!-- Arrows: sources → KDS -->
+            <line x1="138" y1="66" x2="178" y2="140" class="arrow"/>
+            <line x1="138" y1="126" x2="178" y2="165" class="arrow"/>
+            <line x1="138" y1="186" x2="178" y2="190" class="arrow"/>
+            <line x1="138" y1="246" x2="178" y2="215" class="arrow"/>
+
+            <!-- Section: Consumers -->
+            <rect x="330" y="10" width="490" height="440" rx="8" class="section-bg"/>
+            <text x="575" y="30" class="svg-subtext" text-anchor="middle">CONSUMERS &amp; SINKS</text>
+
+            <!-- Hot path: Lambda -->
+            <rect x="344" y="44" width="130" height="52" rx="6" class="node-lambda"/>
+            <text x="409" y="66" class="svg-text" text-anchor="middle">Lambda</text>
+            <text x="409" y="82" class="svg-subtext" text-anchor="middle">Fan-out Consumer</text>
+            <text x="409" y="94" class="svg-subtext" text-anchor="middle">p99 &lt; 500ms</text>
+
+            <!-- DynamoDB sink -->
+            <rect x="502" y="44" width="120" height="52" rx="6" class="node-dynamo"/>
+            <text x="562" y="66" class="svg-text" text-anchor="middle">DynamoDB</text>
+            <text x="562" y="82" class="svg-subtext" text-anchor="middle">Hot path state</text>
+            <text x="562" y="94" class="svg-subtext" text-anchor="middle">Alerts / counters</text>
+
+            <!-- API / downstream -->
+            <rect x="650" y="44" width="150" height="52" rx="6" class="node-sink"/>
+            <text x="725" y="66" class="svg-text" text-anchor="middle">API / Alerts</text>
+            <text x="725" y="82" class="svg-subtext" text-anchor="middle">SNS / EventBridge</text>
+            <text x="725" y="94" class="svg-subtext" text-anchor="middle">Real-time actions</text>
+
+            <!-- Arrows: KDS → Lambda, hot sinks -->
+            <line x1="304" y1="148" x2="342" y2="70" class="arrow-green"/>
+            <line x1="474" y1="70" x2="500" y2="70" class="arrow-green"/>
+            <line x1="622" y1="70" x2="648" y2="70" class="arrow-green"/>
+
+            <!-- Warm path: Firehose -->
+            <rect x="344" y="130" width="130" height="52" rx="6" class="node-firehose"/>
+            <text x="409" y="152" class="svg-text" text-anchor="middle">Firehose</text>
+            <text x="409" y="168" class="svg-subtext" text-anchor="middle">Delivery Stream</text>
+            <text x="409" y="180" class="svg-subtext" text-anchor="middle">Buffer 1–15 min</text>
+
+            <!-- S3 Bronze -->
+            <rect x="502" y="118" width="120" height="68" rx="6" class="node-s3"/>
+            <text x="562" y="147" class="svg-text" text-anchor="middle">S3 Bronze</text>
+            <text x="562" y="163" class="svg-subtext" text-anchor="middle">Parquet / GZIP</text>
+            <text x="562" y="178" class="svg-subtext" text-anchor="middle">Partitioned by dt</text>
+
+            <!-- Glue / EMR -->
+            <rect x="650" y="118" width="150" height="68" rx="6" class="node-process"/>
+            <text x="725" y="147" class="svg-text" text-anchor="middle">Glue / EMR</text>
+            <text x="725" y="163" class="svg-subtext" text-anchor="middle">Silver transform</text>
+            <text x="725" y="178" class="svg-subtext" text-anchor="middle">Delta MERGE</text>
+
+            <!-- KDS → Firehose arrow -->
+            <line x1="304" y1="175" x2="342" y2="156" class="arrow-amber"/>
+            <!-- Firehose → S3 -->
+            <line x1="474" y1="156" x2="500" y2="156" class="arrow-amber"/>
+            <!-- S3 → Glue -->
+            <line x1="622" y1="152" x2="648" y2="152" class="arrow-amber"/>
+
+            <!-- Analytics path -->
+            <rect x="344" y="220" width="130" height="52" rx="6" class="node-kds"/>
+            <text x="409" y="242" class="svg-text" text-anchor="middle">KDA / Flink</text>
+            <text x="409" y="258" class="svg-subtext" text-anchor="middle">Managed Flink</text>
+            <text x="409" y="270" class="svg-subtext" text-anchor="middle">SQL on stream</text>
+
+            <rect x="502" y="210" width="120" height="68" rx="6" class="node-sink"/>
+            <text x="562" y="239" class="svg-text" text-anchor="middle">Redshift</text>
+            <text x="562" y="255" class="svg-subtext" text-anchor="middle">COPY via S3</text>
+            <text x="562" y="270" class="svg-subtext" text-anchor="middle">BI / Analytics</text>
+
+            <rect x="650" y="210" width="150" height="68" rx="6" class="node-sink"/>
+            <text x="725" y="239" class="svg-text" text-anchor="middle">OpenSearch</text>
+            <text x="725" y="255" class="svg-subtext" text-anchor="middle">Log analytics</text>
+            <text x="725" y="270" class="svg-subtext" text-anchor="middle">Kibana dashboards</text>
+
+            <!-- KDS → KDA -->
+            <line x1="304" y1="210" x2="342" y2="246" class="arrow"/>
+            <!-- KDA → Redshift / OpenSearch -->
+            <line x1="474" y1="246" x2="500" y2="246" class="arrow"/>
+            <line x1="622" y1="246" x2="648" y2="246" class="arrow"/>
+
+            <!-- Legend -->
+            <rect x="344" y="320" width="456" height="120" rx="6" style="fill:rgba(0,0,0,0.25);stroke:rgba(255,255,255,0.06);"/>
+            <text x="364" y="342" class="svg-subtext">LEGEND</text>
+            <line x1="364" y1="362" x2="394" y2="362" style="stroke:#10d5a0;stroke-width:1.5;" marker-end="url(#arrowhead-green)"/>
+            <text x="400" y="366" class="svg-label">Hot path (&lt;500ms)</text>
+            <line x1="364" y1="388" x2="394" y2="388" style="stroke:#f59e0b;stroke-width:1.5;" marker-end="url(#arrowhead-amber)"/>
+            <text x="400" y="392" class="svg-label">Warm path (1–15 min buffer)</text>
+            <line x1="364" y1="414" x2="394" y2="414" style="stroke:#5bbad5;stroke-width:1.5;" marker-end="url(#arrowhead-cyan)"/>
+            <text x="400" y="418" class="svg-label">Analytical / batch path</text>
+
+            <text x="560" y="366" class="svg-label">KDS: Kinesis Data Streams</text>
+            <text x="560" y="388" class="svg-label">KDA: Kinesis Data Analytics (Managed Flink)</text>
+            <text x="560" y="410" class="svg-label">Firehose: 60s–900s buffer, auto-scaling</text>
+          </svg>
+        </div>
+
+        <p>
+          The architecture has three parallel consumer paths from a single KDS stream: a <strong>hot path</strong> (Lambda for real-time actions), a <strong>warm path</strong> (Firehose for durable S3 landing), and an <strong>analytical path</strong> (Managed Flink / KDA for continuous aggregations). One stream, three latency tiers.
+        </p>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Kinesis Data Streams vs Firehose: The Decision Matrix</h2>
+
+        <p>
+          The most common confusion: engineers use Firehose when they need Streams, or vice versa. They solve different problems.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Kinesis Data Streams</th>
+                <th>Kinesis Firehose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Latency</strong></td>
+                <td>70ms (standard) / real-time (enhanced fan-out)</td>
+                <td>60s–900s buffer window</td>
+              </tr>
+              <tr>
+                <td><strong>Consumers</strong></td>
+                <td>Multiple independent consumers, replayable</td>
+                <td>Single destination per stream</td>
+              </tr>
+              <tr>
+                <td><strong>Scaling</strong></td>
+                <td>Manual shards or auto-scaling via UpdateShardCount</td>
+                <td>Fully automatic, serverless</td>
+              </tr>
+              <tr>
+                <td><strong>Retention</strong></td>
+                <td>24h (default) up to 365 days</td>
+                <td>No retention — deliver and forget</td>
+              </tr>
+              <tr>
+                <td><strong>Destinations</strong></td>
+                <td>Lambda, KDA, custom apps, EC2</td>
+                <td>S3, Redshift, OpenSearch, Splunk, HTTP</td>
+              </tr>
+              <tr>
+                <td><strong>Data transform</strong></td>
+                <td>Consumer-side (Lambda / Flink)</td>
+                <td>Inline Lambda transform before delivery</td>
+              </tr>
+              <tr>
+                <td><strong>Cost model</strong></td>
+                <td>Per shard-hour + PUT payload</td>
+                <td>Per GB ingested (no shard concept)</td>
+              </tr>
+              <tr>
+                <td><strong>Use when</strong></td>
+                <td>Real-time processing, multiple consumers, replay needed</td>
+                <td>Landing raw data to S3/Redshift reliably</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout green">
+          <strong>Rule of thumb:</strong> Start with KDS when you need to process and react. Add Firehose as a consumer when you need durable storage. They are complementary, not competing.
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Shard Sizing: Getting It Right the First Time</h2>
+
+        <p>
+          Every Kinesis shard supports <strong>1 MB/s write, 2 MB/s read, 1000 PUT records/s</strong>. Under-shard and you get <code>ProvisionedThroughputExceededException</code>; over-shard and you pay for idle capacity.
+        </p>
+
+        <h3>// Shard Calculation Formula</h3>
+        <div class="code-label">Python — shard estimator</div>
+        <pre><code>import math
+
+def required_shards(
+    max_records_per_sec: int,
+    avg_record_bytes: int,
+    consumer_count: int = 1,
+) -> dict:
+    write_shards = math.ceil(
+        max(
+            max_records_per_sec / 1000,          # record limit
+            (max_records_per_sec * avg_record_bytes) / (1024 * 1024),  # throughput limit
+        )
+    )
+    # Each shard delivers 2 MB/s; scale for multiple consumers
+    read_shards = math.ceil(
+        (max_records_per_sec * avg_record_bytes * consumer_count) / (2 * 1024 * 1024)
+    )
+    recommended = max(write_shards, read_shards)
+    return {
+        "write_shards_needed": write_shards,
+        "read_shards_needed": read_shards,
+        "recommended": recommended,
+        "add_buffer": math.ceil(recommended * 1.25),  # 25% headroom
+    }
+
+# Example: 5000 events/s, 500 bytes avg, 3 consumers
+result = required_shards(5000, 500, consumer_count=3)
+# → recommended: 4 shards, with buffer: 5 shards</code></pre>
+
+        <div class="callout amber">
+          <strong>Watch out:</strong> <code>GetRecords</code> is limited to 5 calls/s per shard across all standard consumers. With 3 consumers polling 1 shard, each gets only 1–2 calls/s. Switch to <strong>Enhanced Fan-Out</strong> (HTTP/2 push, dedicated 2 MB/s per consumer) when you have more than 2 consumers.
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Lambda as a KDS Consumer</h2>
+
+        <p>
+          Lambda is the fastest way to add hot-path processing. KDS triggers Lambda in <strong>batch</strong> — Lambda reads a batch of records, processes them, and commits the checkpoint. Failures retry the entire batch unless you configure failure handling properly.
+        </p>
+
+        <h3>// Event Source Mapping — Production Config</h3>
+        <div class="code-label">Terraform — Lambda ESM for KDS</div>
+        <pre><code>resource "aws_lambda_event_source_mapping" "kinesis_trigger" {
+  event_source_arn  = aws_kinesis_stream.events.arn
+  function_name     = aws_lambda_function.stream_processor.arn
+  starting_position = "LATEST"
+
+  # Tune these for your latency vs cost trade-off
+  batch_size                         = 100
+  maximum_batching_window_in_seconds = 5      # Wait up to 5s to fill a batch
+
+  # Failure handling — critical in production
+  bisect_batch_on_function_error = true        # Split bad batches in half to isolate poison pills
+  maximum_retry_attempts         = 3
+  maximum_record_age_in_seconds  = 3600        # Drop records older than 1h (avoid infinite retry)
+
+  destination_config {
+    on_failure {
+      destination_arn = aws_sqs_queue.kinesis_dlq.arn  # DLQ for failed batches
+    }
+  }
+
+  # Enhanced fan-out (optional — dedicated 2 MB/s per consumer)
+  # consumer_arn = aws_kinesis_stream_consumer.lambda_consumer.arn
+}</code></pre>
+
+        <h3>// Lambda Handler — Batch Processing with Partial Failures</h3>
+        <div class="code-label">Python — Kinesis Lambda handler</div>
+        <pre><code>import json
+import base64
+from typing import Any
+
+def handler(event: dict, context: Any) -> dict:
+    """
+    Return itemIdentifier list to report partial batch failures.
+    Records NOT in the list are considered successful.
+    """
+    failed_sequence_numbers = []
+
+    for record in event["Records"]:
+        sequence_number = record["kinesis"]["sequenceNumber"]
+        try:
+            payload = json.loads(
+                base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
+            )
+            process_event(payload)
+        except Exception as e:
+            print(f"Failed to process {sequence_number}: {e}")
+            failed_sequence_numbers.append({"itemIdentifier": sequence_number})
+
+    # Partial batch failure response — only retry failed records
+    return {"batchItemFailures": failed_sequence_numbers}
+
+
+def process_event(payload: dict) -> None:
+    event_type = payload.get("type")
+    if event_type == "purchase":
+        update_inventory(payload)
+    elif event_type == "fraud_signal":
+        trigger_alert(payload)
+    # else: drop unknown events silently</code></pre>
+
+        <div class="callout">
+          <strong>Enable partial batch failure reporting</strong> (<code>ReportBatchItemFailures</code> in the ESM function response type). Without it, one poison-pill record blocks the entire shard until the retention window expires.
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Firehose: Reliable S3 Landing</h2>
+
+        <p>
+          Firehose is your answer to "how do I get streaming data into S3 without writing delivery logic?" It handles batching, compression, format conversion, and retry automatically.
+        </p>
+
+        <h3>// Firehose Delivery Stream — Terraform</h3>
+        <div class="code-label">Terraform — Firehose to S3 with dynamic partitioning</div>
+        <pre><code>resource "aws_kinesis_firehose_delivery_stream" "bronze_landing" {
+  name        = "events-bronze-landing"
+  destination = "extended_s3"
+
+  kinesis_source_configuration {
+    kinesis_stream_arn = aws_kinesis_stream.events.arn
+    role_arn           = aws_iam_role.firehose_role.arn
+  }
+
+  extended_s3_configuration {
+    role_arn           = aws_iam_role.firehose_role.arn
+    bucket_arn         = aws_s3_bucket.datalake.arn
+    buffering_size     = 128         # MB — flush when buffer hits 128 MB
+    buffering_interval = 300         # seconds — flush every 5 min (max 900)
+    compression_format = "GZIP"
+
+    # Dynamic partitioning — route records to correct S3 prefix
+    dynamic_partitioning_configuration {
+      enabled = true
+    }
+
+    prefix = "bronze/events/event_type=!{partitionKeyFromQuery:event_type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+    error_output_prefix = "_errors/events/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+
+    # Inline transform via Lambda (optional)
+    processing_configuration {
+      enabled = true
+      processors {
+        type = "MetadataExtraction"
+        parameters {
+          parameter_name  = "JsonParsingEngine"
+          parameter_value = "JQ-1.6"
+        }
+        parameters {
+          parameter_name  = "MetadataExtractionQuery"
+          parameter_value = "{event_type:.type}"
+        }
+      }
+    }
+  }
+}</code></pre>
+
+        <div class="callout green">
+          <strong>Dynamic partitioning</strong> extracts fields from the record itself (via JQ or Lambda) and uses them as S3 prefixes. This means Glue/Athena can partition-prune without reprocessing — queries run 10–100× faster.
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Producer Best Practices</h2>
+
+        <h3>// Use PutRecords for Bulk Writes</h3>
+        <div class="code-label">Python — high-throughput Kinesis producer</div>
+        <pre><code>import boto3
+import json
+import hashlib
+from typing import list
+
+kinesis = boto3.client("kinesis", region_name="us-east-1")
+STREAM_NAME = "events-stream"
+BATCH_SIZE  = 500  # PutRecords max is 500 records per call
+
+
+def put_events(events: list[dict]) -> dict:
+    records = [
+        {
+            "Data": json.dumps(event).encode("utf-8"),
+            # Use a business key as partition key for even shard distribution
+            "PartitionKey": hashlib.md5(
+                str(event.get("user_id", "default")).encode()
+            ).hexdigest()[:8],
+        }
+        for event in events
+    ]
+
+    # Chunk into 500-record batches
+    failed = []
+    for i in range(0, len(records), BATCH_SIZE):
+        batch = records[i : i + BATCH_SIZE]
+        response = kinesis.put_records(StreamName=STREAM_NAME, Records=batch)
+
+        # Retry failed records (ProvisionedThroughputExceededException)
+        if response["FailedRecordCount"] > 0:
+            for j, result in enumerate(response["Records"]):
+                if "ErrorCode" in result:
+                    failed.append(batch[j])
+
+    return {"total": len(records), "failed": len(failed)}</code></pre>
+
+        <p>
+          The partition key determines which shard receives the record. Using a high-cardinality key (hashed user ID, device ID) distributes load evenly. Using a low-cardinality key (country code, event type) creates <strong>hot shards</strong> that throttle while others sit idle.
+        </p>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Monitoring: What to Watch in Production</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Namespace</th>
+                <th>Alarm Threshold</th>
+                <th>Root Cause When Triggered</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>WriteProvisionedThroughputExceeded</strong></td>
+                <td>AWS/Kinesis</td>
+                <td>&gt; 0 for 5 min</td>
+                <td>Too few shards or hot partition key</td>
+              </tr>
+              <tr>
+                <td><strong>ReadProvisionedThroughputExceeded</strong></td>
+                <td>AWS/Kinesis</td>
+                <td>&gt; 0 for 5 min</td>
+                <td>Too many standard consumers — switch to Enhanced Fan-Out</td>
+              </tr>
+              <tr>
+                <td><strong>GetRecords.IteratorAgeMilliseconds</strong></td>
+                <td>AWS/Kinesis</td>
+                <td>&gt; 60 000 ms</td>
+                <td>Consumer falling behind — scale Lambda concurrency or add shards</td>
+              </tr>
+              <tr>
+                <td><strong>DeliveryToS3.DataFreshness</strong></td>
+                <td>AWS/Firehose</td>
+                <td>&gt; buffer_interval × 2</td>
+                <td>S3 delivery stalled — check IAM role and bucket policy</td>
+              </tr>
+              <tr>
+                <td><strong>Lambda IteratorAge</strong></td>
+                <td>AWS/Lambda</td>
+                <td>&gt; 120 000 ms</td>
+                <td>Lambda timeout or concurrency limit hit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout amber">
+          <strong>IteratorAgeMilliseconds is your stream health proxy.</strong> If it trends upward, your consumer is slower than your producer. Catch it early — once a stream is 24h behind, you cannot catch up without resharding.
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Cost Optimisation</h2>
+
+        <ul>
+          <li><strong>On-Demand mode</strong> (KDS): Pay per GB, no shard management. Best for spiky or unpredictable workloads. Costs ~3× more per GB than Provisioned at steady-state but saves engineering time.</li>
+          <li><strong>Extended retention costs</strong>: Default 24h is free. Each shard-hour beyond 24h costs ~$0.02/shard-hour. 7-day retention on 10 shards = ~$33/month extra.</li>
+          <li><strong>Firehose compression</strong>: Always use GZIP or Snappy. Raw JSON to S3 typically compresses 5–8×, cutting both S3 storage and downstream Athena query cost.</li>
+          <li><strong>Right-size Lambda memory</strong>: Kinesis Lambda invocations are frequent. Over-allocated memory (1024 MB for simple JSON parsing) can cost 4× more than 256 MB with negligible latency difference.</li>
+          <li><strong>Delete idle shards</strong>: An idle provisioned shard costs $0.015/shard-hour (~$11/shard/month). Scale down with <code>UpdateShardCount</code> during off-peak.</li>
+        </ul>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Kinesis vs Kafka vs MSK: When to Choose What</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Criteria</th>
+                <th>Kinesis Data Streams</th>
+                <th>Amazon MSK (Kafka)</th>
+                <th>MSK Serverless</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ops overhead</strong></td>
+                <td>None — fully managed</td>
+                <td>Medium — broker sizing, patching</td>
+                <td>Low — serverless Kafka</td>
+              </tr>
+              <tr>
+                <td><strong>Max retention</strong></td>
+                <td>365 days</td>
+                <td>Unlimited (disk-bound)</td>
+                <td>Unlimited</td>
+              </tr>
+              <tr>
+                <td><strong>Throughput ceiling</strong></td>
+                <td>Shard-limited (scale manually)</td>
+                <td>Very high (broker-scale)</td>
+                <td>Auto-scale (GBps range)</td>
+              </tr>
+              <tr>
+                <td><strong>AWS ecosystem</strong></td>
+                <td>Native — Lambda, Firehose, KDA</td>
+                <td>Requires connectors / MSK Connect</td>
+                <td>Requires connectors / MSK Connect</td>
+              </tr>
+              <tr>
+                <td><strong>Consumer groups</strong></td>
+                <td>Enhanced Fan-Out (5 max per shard)</td>
+                <td>Unlimited consumer groups</td>
+                <td>Unlimited consumer groups</td>
+              </tr>
+              <tr>
+                <td><strong>Best for</strong></td>
+                <td>AWS-native pipelines, &lt;10 consumers</td>
+                <td>High-throughput, many consumers, Kafka expertise</td>
+                <td>Kafka API without broker management</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Production Checklist</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item</th>
+                <th>Status Gate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>Shard count calculated with 25% headroom</td><td>Required before go-live</td></tr>
+              <tr><td>2</td><td>Partition key is high-cardinality (no hot shards)</td><td>Required before go-live</td></tr>
+              <tr><td>3</td><td>Enhanced Fan-Out enabled for &gt;2 consumers</td><td>Required before go-live</td></tr>
+              <tr><td>4</td><td>Lambda partial batch failure reporting enabled</td><td>Required before go-live</td></tr>
+              <tr><td>5</td><td>DLQ configured for Lambda ESM on-failure</td><td>Required before go-live</td></tr>
+              <tr><td>6</td><td>IteratorAgeMilliseconds alarm set (&lt;60s threshold)</td><td>Required before go-live</td></tr>
+              <tr><td>7</td><td>Firehose dynamic partitioning enabled</td><td>Recommended</td></tr>
+              <tr><td>8</td><td>GZIP compression on Firehose delivery</td><td>Recommended</td></tr>
+              <tr><td>9</td><td>Server-side encryption (SSE-KMS) on KDS</td><td>Required for PII data</td></tr>
+              <tr><td>10</td><td>On-Demand mode evaluated for spiky workloads</td><td>Cost review</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <h2>Final Thoughts</h2>
+
+        <p>
+          Kinesis is the glue between your event producers and your data lake. It is not the sexiest service — it doesn't have the ecosystem of Kafka or the brand recognition of Spark — but it is deeply integrated with the AWS ecosystem, and for AWS-native shops it eliminates an entire layer of operational complexity.
+        </p>
+        <p>
+          The pattern that works in every production pipeline I have built: <strong>KDS as the central bus, Firehose for durable Bronze landing, Lambda for hot-path reactions, and Managed Flink for continuous aggregations</strong>. Start there, measure IteratorAge obsessively, and scale shards before consumers fall behind.
+        </p>
+
+        <p style="margin-top:2.5rem; padding-top:1.5rem; border-top:1px solid var(--border); color:var(--text-muted); font-size:0.875rem;">
+          Questions or corrections? Reach me on
+          <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+          or check the full architecture code on
+          <a href="https://github.com/EddesucessoCloud/" target="_blank" rel="noopener">GitHub</a>.
+        </p>
+
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Daniel Cruz Rodrigues · <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a> · <a href="mailto:danielcruz.alu.lmb@gmail.com">Contact</a></p>
+  </footer>
+
+</body>
+</html>
