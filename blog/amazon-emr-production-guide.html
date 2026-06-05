@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A production guide to Amazon EMR — cluster architecture, Spot instance strategies, EMR Serverless vs EC2 vs EKS, PySpark tuning, and cost optimisation from real data engineering experience." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <title>Amazon EMR in Production: Clusters, Spot Instances &amp; PySpark at Scale | Daniel Cruz Rodrigues</title>
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/amazon-emr-production-guide.html" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Amazon EMR in Production: Clusters, Spot Instances &amp; PySpark at Scale" />
+  <meta property="og:description" content="A senior data engineer's guide to Amazon EMR — deployment options, Spot instance strategies, EMR Serverless, PySpark tuning, and when to choose EMR over Glue or Databricks." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/amazon-emr-production-guide.html" />
+  <meta property="og:image" content="https://danielportfolio.eddesucesso.tech/images/cloud-resume-challenge-cover.webp" />
+
+  <!-- Schema: BlogPosting -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Amazon EMR in Production: Clusters, Spot Instances &amp; PySpark at Scale",
+    "description": "A senior data engineer's guide to Amazon EMR — deployment options, Spot instance strategies, EMR Serverless, PySpark tuning, and when to choose EMR over Glue or Databricks.",
+    "author": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues",
+      "url": "https://danielportfolio.eddesucesso.tech/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues"
+    },
+    "datePublished": "2026-06-05",
+    "dateModified": "2026-06-05",
+    "url": "https://danielportfolio.eddesucesso.tech/blog/amazon-emr-production-guide.html",
+    "keywords": ["Amazon EMR", "Apache Spark", "PySpark", "Data Engineering", "Spot Instances", "AWS", "Data Lake", "EMR Serverless"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:              #080e1c;
+      --surface:         rgba(255,255,255,0.04);
+      --surface-hover:   rgba(255,255,255,0.07);
+      --text-primary:    #e8edf3;
+      --text-dim:        #b8c7d4;
+      --text-muted:      #7a8fa3;
+      --accent-cyan:     #5bbad5;
+      --accent-cyan-dim: rgba(91,186,213,0.12);
+      --accent-cyan-border: rgba(91,186,213,0.25);
+      --accent-green:    #10d5a0;
+      --accent-green-dim: rgba(16,213,160,0.10);
+      --accent-green-border: rgba(16,213,160,0.30);
+      --accent-amber:    #f59e0b;
+      --border:          rgba(91,186,213,0.16);
+      --font-sans:       'Inter', system-ui, sans-serif;
+      --font-mono:       'JetBrains Mono', monospace;
+      --radius-sm:       8px;
+      --radius-md:       12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent-cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(8,14,28,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 40;
+    }
+
+    .site-header .logo {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      color: var(--accent-cyan);
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .site-header nav a {
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      margin-left: 1.5rem;
+      transition: color 150ms;
+    }
+    .site-header nav a:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    /* ── Article layout ── */
+    .article-wrap {
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 3rem 2rem 6rem;
+    }
+
+    /* ── Post header ── */
+    .post-header { margin-bottom: 2.5rem; }
+
+    .post-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+    .post-breadcrumb a { color: var(--text-muted); }
+    .post-breadcrumb a:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    .post-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan-border);
+    }
+
+    .tag.green {
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      border-color: var(--accent-green-border);
+    }
+
+    .tag.amber {
+      background: rgba(245,158,11,0.12);
+      color: var(--accent-amber);
+      border-color: rgba(245,158,11,0.30);
+    }
+
+    .post-header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.25rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-meta .author {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Table of contents ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-cyan);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .toc h2 {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 0.75rem;
+    }
+
+    .toc ol {
+      list-style: decimal;
+      padding-left: 1.25rem;
+    }
+
+    .toc li {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+
+    .toc li a { color: var(--text-dim); }
+    .toc li a:hover { color: var(--accent-cyan); }
+
+    /* ── Article body ── */
+    .post-body h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 2.5rem 0 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin: 1.75rem 0 0.5rem;
+    }
+
+    .post-body p {
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      font-size: 0.9875rem;
+      line-height: 1.75;
+    }
+
+    .post-body ul, .post-body ol {
+      color: var(--text-dim);
+      padding-left: 1.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.9875rem;
+    }
+
+    .post-body li {
+      margin-bottom: 0.4rem;
+      line-height: 1.65;
+    }
+
+    .post-body strong { color: var(--text-primary); font-weight: 600; }
+
+    .post-body code {
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--accent-cyan-border);
+    }
+
+    .post-body pre {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-green);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1.25rem 0 1.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.825rem;
+      line-height: 1.65;
+      color: var(--text-dim);
+    }
+
+    .post-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    .post-body pre .c  { color: var(--text-muted); }
+    .post-body pre .k  { color: var(--accent-cyan); }
+    .post-body pre .s  { color: var(--accent-green); }
+    .post-body pre .n  { color: var(--text-primary); }
+    .post-body pre .m  { color: var(--accent-amber); }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-size: 0.9375rem;
+      line-height: 1.65;
+    }
+
+    .callout.tip {
+      background: var(--accent-green-dim);
+      border-left: 3px solid var(--accent-green);
+      color: var(--text-dim);
+    }
+
+    .callout.warning {
+      background: rgba(245,158,11,0.08);
+      border-left: 3px solid var(--accent-amber);
+      color: var(--text-dim);
+    }
+
+    .callout.info {
+      background: var(--accent-cyan-dim);
+      border-left: 3px solid var(--accent-cyan);
+      color: var(--text-dim);
+    }
+
+    .callout strong { color: var(--text-primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0 1.75rem;
+      font-size: 0.875rem;
+    }
+
+    .comparison-table th {
+      background: var(--surface);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--accent-cyan-border);
+    }
+
+    .comparison-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+
+    .comparison-table tr:last-child td { border-bottom: none; }
+    .comparison-table tr:hover td { background: var(--surface); }
+    .comparison-table td strong { color: var(--text-primary); }
+
+    /* ── Author card ── */
+    .author-card {
+      display: flex;
+      gap: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-top: 3rem;
+      align-items: flex-start;
+    }
+
+    .author-card .author-info h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .author-card .author-info p {
+      font-size: 0.875rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+
+    .author-card .author-links {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .author-card .author-links a {
+      font-size: 0.8125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .author-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent-cyan-dim);
+      border: 2px solid var(--accent-cyan-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+    }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+
+    @media (max-width: 640px) {
+      .article-wrap { padding: 2rem 1.25rem 4rem; }
+      .site-header { padding: 1rem 1.25rem; }
+      .author-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All Posts</a>
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <header class="post-header">
+        <div class="post-breadcrumb">
+          <a href="https://danielportfolio.eddesucesso.tech/">Home</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <a href="index.html">Blog</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <span>Amazon EMR</span>
+        </div>
+
+        <div class="post-tags">
+          <span class="tag">Amazon EMR</span>
+          <span class="tag green">PySpark</span>
+          <span class="tag green">Spark</span>
+          <span class="tag amber">Cost Optimisation</span>
+        </div>
+
+        <h1>Amazon EMR in Production: Clusters, Spot Instances &amp; PySpark at Scale</h1>
+
+        <div class="post-meta">
+          <span class="author"><i class="fa-solid fa-user-circle" aria-hidden="true"></i> Daniel Cruz Rodrigues</span>
+          <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 2026</span>
+          <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 13 min read</span>
+        </div>
+      </header>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <h2>// Contents</h2>
+        <ol>
+          <li><a href="#what-is-emr">What is Amazon EMR?</a></li>
+          <li><a href="#deployment-options">Deployment Options: EC2 vs EKS vs Serverless</a></li>
+          <li><a href="#cluster-architecture">Cluster Architecture &amp; Node Types</a></li>
+          <li><a href="#instance-strategy">Instance Strategy: Spot, On-Demand &amp; Fleet</a></li>
+          <li><a href="#pyspark-job">Production PySpark on EMR</a></li>
+          <li><a href="#spark-tuning">Spark Configuration Tuning</a></li>
+          <li><a href="#emr-vs-alternatives">EMR vs Glue vs Databricks</a></li>
+          <li><a href="#best-practices">Production Best Practices</a></li>
+          <li><a href="#conclusion">Conclusion</a></li>
+        </ol>
+      </nav>
+
+      <!-- Body -->
+      <div class="post-body">
+
+        <h2 id="what-is-emr">1. What is Amazon EMR?</h2>
+        <p>
+          Amazon EMR (Elastic MapReduce) is AWS's managed big data platform. It provisions and manages clusters running open-source frameworks — Apache Spark, Hadoop, Hive, Presto, HBase — on EC2, EKS, or in a fully serverless mode. Unlike AWS Glue, EMR gives you direct control over the underlying cluster: instance types, Spark version, custom libraries, bootstrap scripts, and JVM flags.
+        </p>
+        <p>
+          That control comes with responsibility. EMR is the right choice when you need to run workloads that outgrow Glue's DPU economics, require custom Spark builds, or demand persistent clusters for low-latency interactive queries. I've used EMR on EC2 with Spot instance fleets at NTT DATA for high-volume Spark batch jobs processing 20M+ records daily — at roughly 40% of the equivalent Glue cost.
+        </p>
+
+        <div class="callout info">
+          <strong>EMR vs Glue at a glance:</strong> Glue wins on zero-ops simplicity and Data Catalog integration. EMR wins on raw cost efficiency at scale, custom Spark control, and mixed-workload clusters (Spark + Presto + Hive on the same fleet).
+        </div>
+
+        <h2 id="deployment-options">2. Deployment Options: EC2 vs EKS vs Serverless</h2>
+        <p>AWS offers three distinct EMR deployment models, each with different trade-offs on control, cost, and operational overhead:</p>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>Underlying Infra</th>
+              <th>Cold Start</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>EMR on EC2</strong></td>
+              <td>EC2 instances (On-Demand or Spot)</td>
+              <td>5–10 min</td>
+              <td>Batch ETL at scale, cost-sensitive workloads, custom Spark libs</td>
+            </tr>
+            <tr>
+              <td><strong>EMR on EKS</strong></td>
+              <td>Kubernetes (EKS)</td>
+              <td>1–3 min</td>
+              <td>Teams already running EKS, multi-tenant data platforms, fine-grained resource isolation</td>
+            </tr>
+            <tr>
+              <td><strong>EMR Serverless</strong></td>
+              <td>Managed (no cluster to configure)</td>
+              <td>~1 min (pre-init: seconds)</td>
+              <td>Intermittent batch jobs, developer self-service, eliminating cluster management</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <strong>EMR Serverless pre-initialized capacity:</strong> Configure a minimum number of pre-initialized workers in your application to reduce cold starts from ~60s to under 10s. Ideal for SLA-sensitive batch jobs triggered by events.
+        </div>
+
+        <h3>EMR Serverless: the new default for batch</h3>
+        <p>
+          EMR Serverless (launched 2022) removes cluster provisioning entirely. You create an <em>application</em>, submit jobs, and pay only for vCPU-seconds and GB-seconds of memory consumed. No master node costs, no idle cluster charges. For teams running fewer than 5 Spark jobs per day, it almost always beats EC2 on total cost.
+        </p>
+        <p>
+          The trade-off: you lose fine-grained Spark executor configuration, cannot SSH into workers for debugging, and custom Python dependencies require packaging into a virtual environment ZIP or a Docker image.
+        </p>
+
+        <h2 id="cluster-architecture">3. Cluster Architecture &amp; Node Types</h2>
+        <p>
+          On EMR on EC2, every cluster has three node roles. Understanding them is critical for correct Spot instance placement — putting the wrong node type on Spot causes data loss or job failure.
+        </p>
+
+        <h3>Primary (Master) node</h3>
+        <p>
+          Runs the YARN ResourceManager, Spark Driver (in cluster mode), HDFS NameNode, and the EMR management daemon. <strong>Always run on On-Demand.</strong> A Spot interruption on the primary node terminates the entire cluster and all running steps.
+        </p>
+
+        <h3>Core nodes</h3>
+        <p>
+          Run YARN NodeManager and HDFS DataNode. They store HDFS data locally. Losing a core node can cause HDFS data loss if replication factor is not met. For EMRFS-only workloads (data on S3, not HDFS), core nodes can safely run on Spot — but keep a minimum of 1–2 On-Demand core nodes to keep YARN alive during interruptions.
+        </p>
+
+        <h3>Task nodes</h3>
+        <p>
+          Run YARN NodeManager only — no HDFS. They are pure compute. <strong>Task nodes are ideal for Spot.</strong> A Spot interruption simply reduces available executors; YARN reschedules the lost tasks on surviving nodes. No data loss, no cluster termination.
+        </p>
+
+        <div class="callout warning">
+          <strong>Common mistake:</strong> Running Core nodes on Spot on HDFS-backed clusters. When a Core Spot node is interrupted, HDFS under-replication triggers, and the cluster can enter a degraded state requiring manual recovery. Always use On-Demand for Core nodes if any job uses HDFS for shuffle or intermediate storage.
+        </div>
+
+        <h2 id="instance-strategy">4. Instance Strategy: Spot, On-Demand &amp; Instance Fleet</h2>
+
+        <h3>Instance Fleet vs Instance Group</h3>
+        <p>
+          EMR offers two cluster purchasing models: <strong>Instance Groups</strong> (one instance type per role) and <strong>Instance Fleets</strong> (up to 5 instance types per role, mix of On-Demand and Spot). Always use Instance Fleets for production — they dramatically reduce Spot interruption risk by diversifying across multiple instance families and sizes.
+        </p>
+
+<pre><code><span class="c"># AWS CLI: create cluster with Instance Fleet (Spot task nodes)</span>
+<span class="n">aws emr create-cluster</span> \
+  <span class="n">--name</span> <span class="s">"prod-etl-cluster"</span> \
+  <span class="n">--release-label</span> <span class="s">"emr-7.1.0"</span> \
+  <span class="n">--applications</span> <span class="n">Name=Spark</span> \
+  <span class="n">--ec2-attributes</span> <span class="s">'{"SubnetIds":["subnet-abc","subnet-def"]}'</span> \
+  <span class="n">--instance-fleets</span> <span class="s">'[
+    {
+      "Name": "Primary",
+      "InstanceFleetType": "MASTER",
+      "TargetOnDemandCapacity": 1,
+      "InstanceTypeConfigs": [{"InstanceType": "m6i.xlarge"}]
+    },
+    {
+      "Name": "Core",
+      "InstanceFleetType": "CORE",
+      "TargetOnDemandCapacity": 2,
+      "InstanceTypeConfigs": [
+        {"InstanceType": "m6i.2xlarge"},
+        {"InstanceType": "m6a.2xlarge"}
+      ]
+    },
+    {
+      "Name": "Task",
+      "InstanceFleetType": "TASK",
+      "TargetSpotCapacity": 8,
+      "InstanceTypeConfigs": [
+        {"InstanceType": "m6i.2xlarge",  "BidPriceAsPercentageOfOnDemandPrice": 80},
+        {"InstanceType": "m6a.2xlarge",  "BidPriceAsPercentageOfOnDemandPrice": 80},
+        {"InstanceType": "r6i.2xlarge",  "BidPriceAsPercentageOfOnDemandPrice": 80},
+        {"InstanceType": "m5.2xlarge",   "BidPriceAsPercentageOfOnDemandPrice": 80},
+        {"InstanceType": "m5a.2xlarge",  "BidPriceAsPercentageOfOnDemandPrice": 80}
+      ],
+      "LaunchSpecifications": {
+        "SpotSpecification": {
+          "TimeoutDurationMinutes": 10,
+          "TimeoutAction": "SWITCH_TO_ON_DEMAND"
+        }
+      }
+    }
+  ]'</span></code></pre>
+
+        <div class="callout tip">
+          <strong>Spot diversification rule of thumb:</strong> Include at least 4–5 instance types across 2+ families (e.g., m6i, m6a, r6i, m5). Spot capacity pools are per-AZ per instance type — diversification across pools is the single most effective way to avoid interruptions. A 5-type fleet is 5× more resilient than a single type.
+        </div>
+
+        <h3>Managed Scaling</h3>
+        <p>
+          Enable <strong>EMR Managed Scaling</strong> instead of manually setting task node counts. It monitors YARN memory available and pending containers, then adds or removes task nodes automatically. Set a minimum (1–2 nodes for baseline) and a maximum (your peak capacity) — EMR handles the rest.
+        </p>
+
+<pre><code><span class="c"># Managed Scaling policy (attach to cluster or set at creation)</span>
+<span class="n">aws emr put-managed-scaling-policy</span> \
+  <span class="n">--cluster-id</span> <span class="s">j-XXXXXXXXXX</span> \
+  <span class="n">--managed-scaling-policy</span> <span class="s">'{
+    "ComputeLimits": {
+      "UnitType": "Instances",
+      "MinimumCapacityUnits": 2,
+      "MaximumCapacityUnits": 20,
+      "MaximumOnDemandCapacityUnits": 4
+    }
+  }'</span></code></pre>
+
+        <h2 id="pyspark-job">5. Production PySpark on EMR</h2>
+        <p>
+          The following job demonstrates a production-grade pattern: reading partitioned Parquet from S3 (EMRFS), applying a multi-stage transform with skew handling, and writing back to S3 with Delta Lake semantics using the open-source Delta Spark library bundled at cluster bootstrap.
+        </p>
+
+<pre><code><span class="c"># emr_silver_to_gold.py
+# Aggregates silver-layer events into a gold-layer daily user summary</span>
+<span class="k">import</span> <span class="n">argparse</span>
+<span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">SparkSession</span>
+<span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+<span class="k">from</span> <span class="n">pyspark.sql.window</span> <span class="k">import</span> <span class="n">Window</span>
+<span class="k">from</span> <span class="n">delta.tables</span> <span class="k">import</span> <span class="n">DeltaTable</span>
+
+<span class="n">parser</span> <span class="n">=</span> <span class="n">argparse</span><span class="n">.ArgumentParser</span><span class="n">()</span>
+<span class="n">parser</span><span class="n">.add_argument</span><span class="n">(</span><span class="s">"--silver-path"</span><span class="n">,</span> <span class="n">required=True</span><span class="n">)</span>
+<span class="n">parser</span><span class="n">.add_argument</span><span class="n">(</span><span class="s">"--gold-path"</span><span class="n">,</span>   <span class="n">required=True</span><span class="n">)</span>
+<span class="n">parser</span><span class="n">.add_argument</span><span class="n">(</span><span class="s">"--run-date"</span><span class="n">,</span>    <span class="n">required=True</span><span class="n">)</span>  <span class="c"># e.g. 2026-06-05</span>
+<span class="n">args</span> <span class="n">=</span> <span class="n">parser</span><span class="n">.parse_args</span><span class="n">()</span>
+
+<span class="n">spark</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">SparkSession</span><span class="n">.builder</span>
+    <span class="n">.appName</span><span class="n">(</span><span class="s">"silver-to-gold"</span><span class="n">)</span>
+    <span class="c"># Delta Lake config</span>
+    <span class="n">.config</span><span class="n">(</span><span class="s">"spark.sql.extensions"</span><span class="n">,</span> <span class="s">"io.delta.sql.DeltaSparkSessionExtension"</span><span class="n">)</span>
+    <span class="n">.config</span><span class="n">(</span><span class="s">"spark.sql.catalog.spark_catalog"</span><span class="n">,</span> <span class="s">"org.apache.spark.sql.delta.catalog.DeltaCatalog"</span><span class="n">)</span>
+    <span class="c"># EMRFS optimised committer — avoids rename overhead on S3</span>
+    <span class="n">.config</span><span class="n">(</span><span class="s">"spark.sql.parquet.output.committer.class"</span><span class="n">,</span>
+            <span class="s">"com.amazon.emr.committer.EmrOptimizedSparkSqlParquetOutputCommitter"</span><span class="n">)</span>
+    <span class="n">.getOrCreate</span><span class="n">()</span>
+<span class="n">)</span>
+
+<span class="c"># ── Read silver (partition-pruned by run_date) ────────────</span>
+<span class="n">df_silver</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">spark</span><span class="n">.read</span><span class="n">.parquet</span><span class="n">(</span><span class="n">args</span><span class="n">.silver_path</span><span class="n">)</span>
+    <span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"run_date"</span><span class="n">)</span> <span class="n">==</span> <span class="n">args</span><span class="n">.run_date</span><span class="n">)</span>
+<span class="n">)</span>
+
+<span class="c"># ── Salt high-cardinality user_id to reduce join skew ─────</span>
+<span class="n">SALT</span> <span class="n">=</span> <span class="m">10</span>
+<span class="n">df_salted</span> <span class="n">=</span> <span class="n">df_silver</span><span class="n">.withColumn</span><span class="n">(</span>
+    <span class="s">"salted_user_id"</span><span class="n">,</span>
+    <span class="n">F</span><span class="n">.concat</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">),</span> <span class="n">F</span><span class="n">.lit</span><span class="n">(</span><span class="s">"_"</span><span class="n">),</span> <span class="n">(</span><span class="n">F</span><span class="n">.rand</span><span class="n">()</span> <span class="n">*</span> <span class="n">SALT</span><span class="n">)</span><span class="n">.cast</span><span class="n">(</span><span class="s">"int"</span><span class="n">))</span>
+<span class="n">)</span>
+
+<span class="c"># ── Aggregate per user per day ────────────────────────────</span>
+<span class="n">df_agg</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">df_salted</span>
+    <span class="n">.groupBy</span><span class="n">(</span><span class="s">"salted_user_id"</span><span class="n">,</span> <span class="s">"event_type"</span><span class="n">)</span>
+    <span class="n">.agg</span><span class="n">(</span>
+        <span class="n">F</span><span class="n">.count</span><span class="n">(</span><span class="s">"*"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"event_count"</span><span class="n">),</span>
+        <span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"amount"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"total_amount"</span><span class="n">),</span>
+    <span class="n">)</span>
+    <span class="c"># Merge salted partials — strip salt suffix to get real user_id</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span> <span class="n">F</span><span class="n">.split</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"salted_user_id"</span><span class="n">),</span> <span class="s">"_"</span><span class="n">)</span><span class="n">.getItem</span><span class="n">(</span><span class="m">0</span><span class="n">))</span>
+    <span class="n">.groupBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span> <span class="s">"event_type"</span><span class="n">)</span>
+    <span class="n">.agg</span><span class="n">(</span>
+        <span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"event_count"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"event_count"</span><span class="n">),</span>
+        <span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"total_amount"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"total_amount"</span><span class="n">),</span>
+    <span class="n">)</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"run_date"</span><span class="n">,</span> <span class="n">F</span><span class="n">.lit</span><span class="n">(</span><span class="n">args</span><span class="n">.run_date</span><span class="n">))</span>
+<span class="n">)</span>
+
+<span class="c"># ── Upsert into Delta gold table ──────────────────────────</span>
+<span class="k">if</span> <span class="n">DeltaTable</span><span class="n">.isDeltaTable</span><span class="n">(</span><span class="n">spark</span><span class="n">,</span> <span class="n">args</span><span class="n">.gold_path</span><span class="n">):</span>
+    <span class="n">gold</span> <span class="n">=</span> <span class="n">DeltaTable</span><span class="n">.forPath</span><span class="n">(</span><span class="n">spark</span><span class="n">,</span> <span class="n">args</span><span class="n">.gold_path</span><span class="n">)</span>
+    <span class="n">gold</span><span class="n">.alias</span><span class="n">(</span><span class="s">"t"</span><span class="n">)</span><span class="n">.merge</span><span class="n">(</span>
+        <span class="n">df_agg</span><span class="n">.alias</span><span class="n">(</span><span class="s">"s"</span><span class="n">),</span>
+        <span class="s">"t.user_id = s.user_id AND t.event_type = s.event_type AND t.run_date = s.run_date"</span>
+    <span class="n">)</span><span class="n">.whenMatchedUpdateAll</span><span class="n">()</span><span class="n">.whenNotMatchedInsertAll</span><span class="n">()</span><span class="n">.execute</span><span class="n">()</span>
+<span class="k">else</span><span class="n">:</span>
+    <span class="n">df_agg</span><span class="n">.write</span><span class="n">.format</span><span class="n">(</span><span class="s">"delta"</span><span class="n">)</span><span class="n">.partitionBy</span><span class="n">(</span><span class="s">"run_date"</span><span class="n">)</span><span class="n">.save</span><span class="n">(</span><span class="n">args</span><span class="n">.gold_path</span><span class="n">)</span>
+
+<span class="n">spark</span><span class="n">.stop</span><span class="n">()</span></code></pre>
+
+        <div class="callout tip">
+          <strong>EMRFS Optimised Committer:</strong> Standard Parquet output commits use S3 renames (a copy + delete), which are slow and not atomic. The EMR Optimised Committer uses S3 multipart upload with a single metadata operation — typically 2–4× faster for large partition writes. Enable it for every job writing Parquet to S3.
+        </div>
+
+        <h2 id="spark-tuning">6. Spark Configuration Tuning</h2>
+        <p>
+          EMR gives you full control of <code>spark-defaults.conf</code>, executor sizing, and shuffle behaviour. These are the settings I tune on every production cluster:
+        </p>
+
+<pre><code><span class="c"># spark-defaults.conf — applied via EMR configuration objects at cluster creation</span>
+
+<span class="c"># ── Memory &amp; executor sizing ──────────────────────────────</span>
+<span class="n">spark.executor.memory</span>                    <span class="m">12g</span>
+<span class="n">spark.executor.memoryOverhead</span>            <span class="m">2g</span>     <span class="c"># off-heap for off-heap ORC/Parquet buffers</span>
+<span class="n">spark.executor.cores</span>                     <span class="m">4</span>
+<span class="n">spark.driver.memory</span>                      <span class="m">4g</span>
+<span class="n">spark.driver.maxResultSize</span>               <span class="m">2g</span>
+
+<span class="c"># ── AQE (Adaptive Query Execution) ───────────────────────</span>
+<span class="n">spark.sql.adaptive.enabled</span>               <span class="n">true</span>
+<span class="n">spark.sql.adaptive.coalescePartitions.enabled</span>  <span class="n">true</span>
+<span class="n">spark.sql.adaptive.skewJoin.enabled</span>      <span class="n">true</span>
+<span class="n">spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes</span>  <span class="m">256m</span>
+
+<span class="c"># ── Shuffle ───────────────────────────────────────────────</span>
+<span class="n">spark.sql.shuffle.partitions</span>             <span class="m">400</span>    <span class="c"># AQE will reduce if small dataset</span>
+<span class="n">spark.shuffle.service.enabled</span>            <span class="n">true</span>   <span class="c"># required for dynamic allocation</span>
+
+<span class="c"># ── Dynamic allocation ────────────────────────────────────</span>
+<span class="n">spark.dynamicAllocation.enabled</span>          <span class="n">true</span>
+<span class="n">spark.dynamicAllocation.minExecutors</span>     <span class="m">2</span>
+<span class="n">spark.dynamicAllocation.maxExecutors</span>     <span class="m">50</span>
+<span class="n">spark.dynamicAllocation.executorIdleTimeout</span>  <span class="m">60s</span>
+
+<span class="c"># ── S3 / EMRFS ────────────────────────────────────────────</span>
+<span class="n">spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version</span>  <span class="m">2</span>
+<span class="n">spark.hadoop.fs.s3.impl</span>                  <span class="n">com.amazon.ws.emr.hadoop.fs.EmrFileSystem</span>
+<span class="n">spark.hadoop.fs.s3.consistent</span>            <span class="n">true</span>   <span class="c"># eventual-consistency guard (legacy, still useful)</span></code></pre>
+
+        <div class="callout warning">
+          <strong>Dynamic Allocation + Spot:</strong> Dynamic Allocation scales executors down during idle periods — good for cost. But on Spot clusters, sudden scale-up requests during a computation spike may not be fulfilled if capacity is constrained. Set <code>minExecutors</code> high enough to complete the critical path without scaling events, then let dynamic allocation handle the rest.
+        </div>
+
+        <h2 id="emr-vs-alternatives">7. EMR vs Glue vs Databricks</h2>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>EMR on EC2</th>
+              <th>AWS Glue (Spark)</th>
+              <th>Databricks on AWS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Setup overhead</strong></td>
+              <td>High (cluster config, IAM, bootstrap)</td>
+              <td>Low (fully managed)</td>
+              <td>Medium (workspace setup, instance profiles)</td>
+            </tr>
+            <tr>
+              <td><strong>Spark version control</strong></td>
+              <td>Full — choose any EMR release</td>
+              <td>Managed by AWS — limited to supported versions</td>
+              <td>Full — Databricks Runtime versions</td>
+            </tr>
+            <tr>
+              <td><strong>Custom libraries</strong></td>
+              <td>Bootstrap scripts, custom JARs</td>
+              <td>Extra JARs param, Python venv</td>
+              <td>Cluster libraries, init scripts</td>
+            </tr>
+            <tr>
+              <td><strong>Cost at 100+ DPUs equiv</strong></td>
+              <td>Lowest (Spot + right-sized EC2)</td>
+              <td>Higher (~2× EMR for same workload)</td>
+              <td>Higher (DBU surcharge + EC2)</td>
+            </tr>
+            <tr>
+              <td><strong>Delta Lake support</strong></td>
+              <td>Via open-source delta-spark JAR</td>
+              <td>Native (Glue uses its own Delta connector)</td>
+              <td>Native (first-class)</td>
+            </tr>
+            <tr>
+              <td><strong>Interactive notebooks</strong></td>
+              <td>EMR Studio (JupyterHub)</td>
+              <td>Glue Studio notebooks</td>
+              <td>First-class — collaborative notebooks</td>
+            </tr>
+            <tr>
+              <td><strong>Observability</strong></td>
+              <td>Spark History Server, CloudWatch</td>
+              <td>Glue job metrics, CloudWatch</td>
+              <td>Ganglia, Spark UI, built-in dashboards</td>
+            </tr>
+            <tr>
+              <td><strong>Best for</strong></td>
+              <td>Cost-sensitive batch at scale, custom Spark</td>
+              <td>Serverless batch, Data Catalog integration</td>
+              <td>Data science + ML + BI on shared clusters</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="best-practices">8. Production Best Practices</h2>
+
+        <h3>Bootstrap actions for dependency management</h3>
+        <p>
+          Bootstrap actions run on every node before Spark starts. Use them to install custom Python packages, configure OS limits, or fetch secrets. Keep bootstrap scripts idempotent and store them in S3.
+        </p>
+
+<pre><code><span class="c">#!/bin/bash
+# bootstrap.sh — stored in s3://my-bucket/emr/bootstrap.sh</span>
+<span class="k">set</span> <span class="n">-euxo pipefail</span>
+
+<span class="c"># Install custom Python deps on all nodes</span>
+<span class="n">pip3 install</span> <span class="n">--quiet</span> <span class="n">delta-spark==3.1.0</span> <span class="n">great-expectations==0.18.0</span>
+
+<span class="c"># Increase open file limit for high-concurrency Spark jobs</span>
+<span class="n">echo</span> <span class="s">"* soft nofile 65536"</span> <span class="n">&gt;&gt;</span> <span class="n">/etc/security/limits.conf</span>
+<span class="n">echo</span> <span class="s">"* hard nofile 65536"</span> <span class="n">&gt;&gt;</span> <span class="n">/etc/security/limits.conf</span></code></pre>
+
+        <h3>Step debugging with EMR Studio</h3>
+        <p>
+          When a Spark step fails, the default error in the EMR console is often a generic <code>FAILED</code> status. For real debugging:
+        </p>
+        <ul>
+          <li>Enable the <strong>Spark History Server</strong> on the primary node and access it via SSH tunnelling or EMR Studio — the DAG view shows exactly which stage and task failed.</li>
+          <li>Stream step logs to S3 (<code>--log-uri s3://my-bucket/emr-logs/</code>) and check <code>stderr</code> in <code>steps/{step-id}/</code> — the Python traceback is there.</li>
+          <li>Use <code>aws emr describe-step --cluster-id j-XXX --step-id s-YYY</code> to get the failure reason programmatically in CI/CD pipelines.</li>
+        </ul>
+
+        <h3>Cluster termination protection</h3>
+        <p>
+          Enable <strong>termination protection</strong> on long-running clusters to prevent accidental <code>aws emr terminate-clusters</code> calls from destroying in-flight jobs. Disable it explicitly before decommissioning.
+        </p>
+
+        <h3>Tagging and cost allocation</h3>
+        <ul>
+          <li>Always tag clusters with <code>Project</code>, <code>Team</code>, <code>Environment</code>, and <code>CostCenter</code> — these propagate to EC2 instances and appear in Cost Explorer.</li>
+          <li>Use AWS Cost Anomaly Detection alerts on the EMR service to catch runaway clusters early.</li>
+          <li>Set a <strong>cluster auto-termination</strong> idle timeout (<code>--auto-termination-policy IdleTimeout=3600</code>) so forgotten clusters don't accumulate charges overnight.</li>
+        </ul>
+
+        <h3>Security hardening</h3>
+        <ul>
+          <li>Deploy clusters in a <strong>private subnet</strong> — the primary node should never have a public IP. Access via EMR Studio or Session Manager.</li>
+          <li>Attach a <strong>Security Configuration</strong> with EMRFS SSE-KMS encryption for data at rest and TLS for in-transit encryption between nodes.</li>
+          <li>Use <strong>Lake Formation</strong> for fine-grained column-level access control if multiple teams query the same Data Catalog.</li>
+          <li>Restrict the EMR EC2 instance profile to only the S3 prefixes and DynamoDB tables the job actually needs — never attach <code>AdministratorAccess</code>.</li>
+        </ul>
+
+        <div class="callout info">
+          <strong>Spot interruption handling in Spark:</strong> When a Spot node is interrupted mid-task, YARN marks the executor as lost and reschedules those tasks. Spark's <code>spark.task.maxFailures</code> defaults to 4 — tasks can be retried 4 times before the stage fails. For Spot-heavy clusters processing large shuffles, increase this to 8 to absorb bursts of simultaneous interruptions.
+        </div>
+
+        <h2 id="conclusion">9. Conclusion</h2>
+        <p>
+          Amazon EMR remains the gold standard for cost-sensitive, large-scale Spark workloads on AWS when you need full control. The operational overhead is real — cluster sizing, Spot diversification, bootstrap scripts, and security configuration all require upfront investment. But that investment pays off: a well-tuned EMR Spot fleet typically runs at 30–50% of the equivalent Glue cost for workloads above 50 DPUs.
+        </p>
+        <p>
+          The landscape in 2026 looks like this: use <strong>EMR Serverless</strong> for intermittent batch jobs where you want zero cluster management. Use <strong>EMR on EC2 with Instance Fleets</strong> for continuous high-volume pipelines where Spot economics matter. Use <strong>AWS Glue</strong> when the Data Catalog integration and zero-ops experience outweigh the cost premium. And consider <strong>Databricks</strong> when your team spans data engineering, data science, and BI and benefits from a unified collaborative platform.
+        </p>
+        <p>
+          Questions or want to discuss your architecture? Find me on <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> or read more on my <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener">Hashnode blog</a>.
+        </p>
+
+      </div><!-- /.post-body -->
+
+      <!-- Author card -->
+      <aside class="author-card" aria-label="About the author">
+        <div class="author-avatar" aria-hidden="true">DC</div>
+        <div class="author-info">
+          <h3>Daniel Cruz Rodrigues</h3>
+          <p>Senior Data Engineer at NTT DATA (Banco Itaú). Databricks &amp; AWS specialist. 6× AWS certified. Building large-scale Data Lakes processing 20M+ records/day.</p>
+          <div class="author-links">
+            <a href="https://danielportfolio.eddesucesso.tech/">
+              <i class="fa-solid fa-globe" aria-hidden="true"></i> Portfolio
+            </a>
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">
+              <i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn
+            </a>
+            <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i> Hashnode
+            </a>
+            <a href="https://github.com/EddesucessoCloud/" target="_blank" rel="noopener">
+              <i class="fa-brands fa-github" aria-hidden="true"></i> GitHub
+            </a>
+          </div>
+        </div>
+      </aside>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Daniel Cruz Rodrigues · <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a> · <a href="index.html">Blog</a> · <a href="mailto:danielcruz.alu.lmb@gmail.com">Contact</a></p>
+  </footer>
+
+</body>
+</html>
