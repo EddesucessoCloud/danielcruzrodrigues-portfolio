@@ -41,7 +41,7 @@ resource "aws_apigatewayv2_route" "terraform_lambda_func" {
 
 # Lambda Permission for API Gateway
 resource "aws_lambda_permission" "api_gw" {
-  statement_id  = "AllowExecutionFromAPIGateway"
+  statement_id  = "AllowExecutionFromAPIGateway-hmp06jkngg"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.terraform_lambda_func.function_name
   principal     = "apigateway.amazonaws.com"
