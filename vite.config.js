@@ -13,6 +13,7 @@ const staticAssets = [
   "robots.txt",
   "sitemap.xml",
   "llms.txt",
+  "blog",
   "site.webmanifest",
   "assets/css/noscript.css",
 ];
