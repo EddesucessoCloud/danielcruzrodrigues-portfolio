@@ -46,6 +46,11 @@ resource "aws_cloudfront_distribution" "website_distribution" {
     default_ttl                 = 3600
     max_ttl                     = 86400
     response_headers_policy_id  = aws_cloudfront_response_headers_policy.security_headers.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_index.arn
+    }
   }
 
   price_class = "PriceClass_100"
@@ -67,6 +72,23 @@ resource "aws_cloudfront_distribution" "website_distribution" {
   tags = local.tags
 }
 
+
+resource "aws_cloudfront_function" "rewrite_index" {
+  name    = "rewrite-directory-index"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+      var uri = event.request.uri;
+      if (uri.endsWith('/')) {
+        event.request.uri += 'index.html';
+      } else if (!uri.split('/').pop().includes('.')) {
+        event.request.uri += '/index.html';
+      }
+      return event.request;
+    }
+  EOT
+}
 
 resource "aws_cloudfront_response_headers_policy" "security_headers" {
   name = "portfolio-security-headers"
