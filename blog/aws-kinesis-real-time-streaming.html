@@ -326,22 +326,6 @@
     .site-footer a { color: var(--text-muted); }
     .site-footer a:hover { color: var(--accent-cyan); }
 
-    /* ── SVG diagram colours ── */
-    .node-sources  { fill: rgba(167,139,250,0.15); stroke: #a78bfa; }
-    .node-kds      { fill: rgba(91,186,213,0.15);  stroke: #5bbad5; }
-    .node-lambda   { fill: rgba(16,213,160,0.15);  stroke: #10d5a0; }
-    .node-firehose { fill: rgba(245,158,11,0.15);  stroke: #f59e0b; }
-    .node-s3       { fill: rgba(245,158,11,0.12);  stroke: #f59e0b; }
-    .node-process  { fill: rgba(91,186,213,0.10);  stroke: #5bbad5; }
-    .node-sink     { fill: rgba(16,213,160,0.12);  stroke: #10d5a0; }
-    .node-dynamo   { fill: rgba(248,113,113,0.12); stroke: #f87171; }
-    .svg-text      { fill: #e8edf3; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
-    .svg-subtext   { fill: #7a8fa3; font-family: 'JetBrains Mono', monospace; font-size: 9px; }
-    .svg-label     { fill: #b8c7d4; font-family: 'Inter', sans-serif; font-size: 10px; }
-    .arrow         { stroke: #5bbad5; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-cyan); }
-    .arrow-green   { stroke: #10d5a0; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-green); }
-    .arrow-amber   { stroke: #f59e0b; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-amber); }
-    .section-bg    { fill: rgba(255,255,255,0.02); stroke: rgba(255,255,255,0.06); stroke-dasharray: 4 3; }
   </style>
 </head>
 <body>
@@ -385,146 +369,12 @@
         <div class="diagram-wrap">
           <p class="diagram-label">// AWS Kinesis Real-Time Streaming Architecture</p>
 
-          <svg viewBox="0 0 820 460" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:820px;display:block;margin:0 auto;">
-            <defs>
-              <marker id="arrowhead-cyan" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="#5bbad5"/>
-              </marker>
-              <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="#10d5a0"/>
-              </marker>
-              <marker id="arrowhead-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="#f59e0b"/>
-              </marker>
-            </defs>
-
-            <!-- Section: Sources -->
-            <rect x="10" y="10" width="140" height="440" rx="8" class="section-bg"/>
-            <text x="80" y="30" class="svg-subtext" text-anchor="middle">SOURCES</text>
-
-            <!-- Source nodes -->
-            <rect x="22" y="44" width="116" height="44" rx="6" class="node-sources"/>
-            <text x="80" y="62" class="svg-text" text-anchor="middle">IoT / Sensors</text>
-            <text x="80" y="78" class="svg-subtext" text-anchor="middle">MQTT / HTTP</text>
-
-            <rect x="22" y="104" width="116" height="44" rx="6" class="node-sources"/>
-            <text x="80" y="122" class="svg-text" text-anchor="middle">Clickstream</text>
-            <text x="80" y="138" class="svg-subtext" text-anchor="middle">SDK / API GW</text>
-
-            <rect x="22" y="164" width="116" height="44" rx="6" class="node-sources"/>
-            <text x="80" y="182" class="svg-text" text-anchor="middle">App Events</text>
-            <text x="80" y="198" class="svg-subtext" text-anchor="middle">PutRecord API</text>
-
-            <rect x="22" y="224" width="116" height="44" rx="6" class="node-sources"/>
-            <text x="80" y="242" class="svg-text" text-anchor="middle">DB Changes</text>
-            <text x="80" y="258" class="svg-subtext" text-anchor="middle">DMS / CDC</text>
-
-            <!-- Section: KDS -->
-            <rect x="168" y="10" width="148" height="440" rx="8" class="section-bg"/>
-            <text x="242" y="30" class="svg-subtext" text-anchor="middle">KINESIS DATA STREAMS</text>
-
-            <rect x="180" y="80" width="124" height="200" rx="8" class="node-kds"/>
-            <text x="242" y="165" class="svg-text" text-anchor="middle">KDS</text>
-            <text x="242" y="183" class="svg-subtext" text-anchor="middle">Shard 1</text>
-            <text x="242" y="198" class="svg-subtext" text-anchor="middle">Shard 2</text>
-            <text x="242" y="213" class="svg-subtext" text-anchor="middle">Shard N</text>
-            <text x="242" y="235" class="svg-subtext" text-anchor="middle">1MB/s per shard</text>
-            <text x="242" y="250" class="svg-subtext" text-anchor="middle">24h–365d retention</text>
-
-            <!-- Arrows: sources → KDS -->
-            <line x1="138" y1="66" x2="178" y2="140" class="arrow"/>
-            <line x1="138" y1="126" x2="178" y2="165" class="arrow"/>
-            <line x1="138" y1="186" x2="178" y2="190" class="arrow"/>
-            <line x1="138" y1="246" x2="178" y2="215" class="arrow"/>
-
-            <!-- Section: Consumers -->
-            <rect x="330" y="10" width="490" height="440" rx="8" class="section-bg"/>
-            <text x="575" y="30" class="svg-subtext" text-anchor="middle">CONSUMERS &amp; SINKS</text>
-
-            <!-- Hot path: Lambda -->
-            <rect x="344" y="44" width="130" height="52" rx="6" class="node-lambda"/>
-            <text x="409" y="66" class="svg-text" text-anchor="middle">Lambda</text>
-            <text x="409" y="82" class="svg-subtext" text-anchor="middle">Fan-out Consumer</text>
-            <text x="409" y="94" class="svg-subtext" text-anchor="middle">p99 &lt; 500ms</text>
-
-            <!-- DynamoDB sink -->
-            <rect x="502" y="44" width="120" height="52" rx="6" class="node-dynamo"/>
-            <text x="562" y="66" class="svg-text" text-anchor="middle">DynamoDB</text>
-            <text x="562" y="82" class="svg-subtext" text-anchor="middle">Hot path state</text>
-            <text x="562" y="94" class="svg-subtext" text-anchor="middle">Alerts / counters</text>
-
-            <!-- API / downstream -->
-            <rect x="650" y="44" width="150" height="52" rx="6" class="node-sink"/>
-            <text x="725" y="66" class="svg-text" text-anchor="middle">API / Alerts</text>
-            <text x="725" y="82" class="svg-subtext" text-anchor="middle">SNS / EventBridge</text>
-            <text x="725" y="94" class="svg-subtext" text-anchor="middle">Real-time actions</text>
-
-            <!-- Arrows: KDS → Lambda, hot sinks -->
-            <line x1="304" y1="148" x2="342" y2="70" class="arrow-green"/>
-            <line x1="474" y1="70" x2="500" y2="70" class="arrow-green"/>
-            <line x1="622" y1="70" x2="648" y2="70" class="arrow-green"/>
-
-            <!-- Warm path: Firehose -->
-            <rect x="344" y="130" width="130" height="52" rx="6" class="node-firehose"/>
-            <text x="409" y="152" class="svg-text" text-anchor="middle">Firehose</text>
-            <text x="409" y="168" class="svg-subtext" text-anchor="middle">Delivery Stream</text>
-            <text x="409" y="180" class="svg-subtext" text-anchor="middle">Buffer 1–15 min</text>
-
-            <!-- S3 Bronze -->
-            <rect x="502" y="118" width="120" height="68" rx="6" class="node-s3"/>
-            <text x="562" y="147" class="svg-text" text-anchor="middle">S3 Bronze</text>
-            <text x="562" y="163" class="svg-subtext" text-anchor="middle">Parquet / GZIP</text>
-            <text x="562" y="178" class="svg-subtext" text-anchor="middle">Partitioned by dt</text>
-
-            <!-- Glue / EMR -->
-            <rect x="650" y="118" width="150" height="68" rx="6" class="node-process"/>
-            <text x="725" y="147" class="svg-text" text-anchor="middle">Glue / EMR</text>
-            <text x="725" y="163" class="svg-subtext" text-anchor="middle">Silver transform</text>
-            <text x="725" y="178" class="svg-subtext" text-anchor="middle">Delta MERGE</text>
-
-            <!-- KDS → Firehose arrow -->
-            <line x1="304" y1="175" x2="342" y2="156" class="arrow-amber"/>
-            <!-- Firehose → S3 -->
-            <line x1="474" y1="156" x2="500" y2="156" class="arrow-amber"/>
-            <!-- S3 → Glue -->
-            <line x1="622" y1="152" x2="648" y2="152" class="arrow-amber"/>
-
-            <!-- Analytics path -->
-            <rect x="344" y="220" width="130" height="52" rx="6" class="node-kds"/>
-            <text x="409" y="242" class="svg-text" text-anchor="middle">KDA / Flink</text>
-            <text x="409" y="258" class="svg-subtext" text-anchor="middle">Managed Flink</text>
-            <text x="409" y="270" class="svg-subtext" text-anchor="middle">SQL on stream</text>
-
-            <rect x="502" y="210" width="120" height="68" rx="6" class="node-sink"/>
-            <text x="562" y="239" class="svg-text" text-anchor="middle">Redshift</text>
-            <text x="562" y="255" class="svg-subtext" text-anchor="middle">COPY via S3</text>
-            <text x="562" y="270" class="svg-subtext" text-anchor="middle">BI / Analytics</text>
-
-            <rect x="650" y="210" width="150" height="68" rx="6" class="node-sink"/>
-            <text x="725" y="239" class="svg-text" text-anchor="middle">OpenSearch</text>
-            <text x="725" y="255" class="svg-subtext" text-anchor="middle">Log analytics</text>
-            <text x="725" y="270" class="svg-subtext" text-anchor="middle">Kibana dashboards</text>
-
-            <!-- KDS → KDA -->
-            <line x1="304" y1="210" x2="342" y2="246" class="arrow"/>
-            <!-- KDA → Redshift / OpenSearch -->
-            <line x1="474" y1="246" x2="500" y2="246" class="arrow"/>
-            <line x1="622" y1="246" x2="648" y2="246" class="arrow"/>
-
-            <!-- Legend -->
-            <rect x="344" y="320" width="456" height="120" rx="6" style="fill:rgba(0,0,0,0.25);stroke:rgba(255,255,255,0.06);"/>
-            <text x="364" y="342" class="svg-subtext">LEGEND</text>
-            <line x1="364" y1="362" x2="394" y2="362" style="stroke:#10d5a0;stroke-width:1.5;" marker-end="url(#arrowhead-green)"/>
-            <text x="400" y="366" class="svg-label">Hot path (&lt;500ms)</text>
-            <line x1="364" y1="388" x2="394" y2="388" style="stroke:#f59e0b;stroke-width:1.5;" marker-end="url(#arrowhead-amber)"/>
-            <text x="400" y="392" class="svg-label">Warm path (1–15 min buffer)</text>
-            <line x1="364" y1="414" x2="394" y2="414" style="stroke:#5bbad5;stroke-width:1.5;" marker-end="url(#arrowhead-cyan)"/>
-            <text x="400" y="418" class="svg-label">Analytical / batch path</text>
-
-            <text x="560" y="366" class="svg-label">KDS: Kinesis Data Streams</text>
-            <text x="560" y="388" class="svg-label">KDA: Kinesis Data Analytics (Managed Flink)</text>
-            <text x="560" y="410" class="svg-label">Firehose: 60s–900s buffer, auto-scaling</text>
-          </svg>
+          <img
+            src="images/kinesis-architecture.png"
+            alt="AWS Kinesis real-time streaming pipeline: IoT, API Gateway, EC2, and DMS feed Kinesis Data Streams, which fans out to three consumer paths — hot (Lambda to DynamoDB), warm (Firehose to S3 to Glue), and analytical (Managed Flink to Redshift and OpenSearch)"
+            style="width:100%;max-width:1100px;display:block;margin:0 auto;border-radius:8px;"
+            loading="lazy"
+          />
         </div>
 
         <p>
