@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Apache Spark performance tuning guide from production experience — fix OOM errors, eliminate data skew, tune shuffles, right-size executors, and cut job runtimes by 40-70%." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <title>Apache Spark Performance Tuning: Fix OOM, Skew &amp; Slow Shuffles in Production | Daniel Cruz Rodrigues</title>
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/apache-spark-performance-tuning.html" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Apache Spark Performance Tuning: Fix OOM, Skew &amp; Slow Shuffles in Production" />
+  <meta property="og:description" content="A senior data engineer's field guide to Spark performance — executor sizing, data skew, shuffle tuning, AQE, broadcast joins, and real optimisations that cut job runtimes by 40–70%." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/apache-spark-performance-tuning.html" />
+  <meta property="og:image" content="https://danielportfolio.eddesucesso.tech/images/cloud-resume-challenge-cover.webp" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Apache Spark Performance Tuning: Fix OOM, Skew &amp; Slow Shuffles in Production",
+    "description": "A senior data engineer's field guide to Spark performance — executor sizing, data skew, shuffle tuning, AQE, broadcast joins, and real optimisations that cut job runtimes by 40–70%.",
+    "author": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues",
+      "url": "https://danielportfolio.eddesucesso.tech/"
+    },
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "datePublished": "2026-06-05",
+    "dateModified": "2026-06-05",
+    "url": "https://danielportfolio.eddesucesso.tech/blog/apache-spark-performance-tuning.html",
+    "keywords": ["Apache Spark", "Spark performance tuning", "PySpark optimization", "data skew", "Spark OOM", "shuffle tuning", "AQE", "data engineering"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080e1c; --surface: rgba(255,255,255,0.04); --surface-hover: rgba(255,255,255,0.07);
+      --text-primary: #e8edf3; --text-dim: #b8c7d4; --text-muted: #7a8fa3;
+      --accent-cyan: #5bbad5; --accent-cyan-dim: rgba(91,186,213,0.12); --accent-cyan-border: rgba(91,186,213,0.25);
+      --accent-green: #10d5a0; --accent-green-dim: rgba(16,213,160,0.10); --accent-green-border: rgba(16,213,160,0.30);
+      --accent-amber: #f59e0b; --border: rgba(91,186,213,0.16);
+      --font-sans: 'Inter', system-ui, sans-serif; --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px; --radius-md: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text-primary); font-family: var(--font-sans); font-size: 1rem; line-height: 1.7; min-height: 100vh; }
+    a { color: var(--accent-cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .site-header { border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(8,14,28,0.92); backdrop-filter: blur(12px); z-index: 40; }
+    .site-header .logo { font-family: var(--font-mono); font-size: 0.875rem; color: var(--accent-cyan); font-weight: 800; letter-spacing: 0.05em; }
+    .site-header nav a { color: var(--text-dim); font-size: 0.875rem; margin-left: 1.5rem; transition: color 150ms; }
+    .site-header nav a:hover { color: var(--accent-cyan); text-decoration: none; }
+    .article-wrap { max-width: 52rem; margin: 0 auto; padding: 3rem 2rem 6rem; }
+    .post-header { margin-bottom: 2.5rem; }
+    .post-breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .post-breadcrumb a { color: var(--text-muted); }
+    .post-breadcrumb a:hover { color: var(--accent-cyan); text-decoration: none; }
+    .post-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .tag { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.2rem 0.65rem; border-radius: 999px; background: var(--accent-cyan-dim); color: var(--accent-cyan); border: 1px solid var(--accent-cyan-border); }
+    .tag.green { background: var(--accent-green-dim); color: var(--accent-green); border-color: var(--accent-green-border); }
+    .tag.amber { background: rgba(245,158,11,0.12); color: var(--accent-amber); border-color: rgba(245,158,11,0.30); }
+    .post-header h1 { font-size: clamp(1.6rem, 4vw, 2.25rem); font-weight: 700; line-height: 1.2; color: var(--text-primary); margin-bottom: 1rem; }
+    .post-meta { display: flex; align-items: center; gap: 1.5rem; color: var(--text-muted); font-size: 0.8125rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .post-meta .author { display: flex; align-items: center; gap: 0.4rem; color: var(--text-dim); }
+    .toc { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; }
+    .toc h2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); margin-bottom: 0.75rem; }
+    .toc ol { list-style: decimal; padding-left: 1.25rem; }
+    .toc li { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+    .toc li a { color: var(--text-dim); }
+    .toc li a:hover { color: var(--accent-cyan); }
+    .post-body h2 { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 2.5rem 0 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+    .post-body h3 { font-size: 1.1rem; font-weight: 600; color: var(--accent-cyan); margin: 1.75rem 0 0.5rem; }
+    .post-body p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.9875rem; line-height: 1.75; }
+    .post-body ul, .post-body ol { color: var(--text-dim); padding-left: 1.5rem; margin-bottom: 1rem; font-size: 0.9875rem; }
+    .post-body li { margin-bottom: 0.4rem; line-height: 1.65; }
+    .post-body strong { color: var(--text-primary); font-weight: 600; }
+    .post-body code { font-family: var(--font-mono); font-size: 0.82em; background: var(--accent-cyan-dim); color: var(--accent-cyan); padding: 0.1em 0.4em; border-radius: 4px; border: 1px solid var(--accent-cyan-border); }
+    .post-body pre { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-left: 3px solid var(--accent-green); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; overflow-x: auto; margin: 1.25rem 0 1.75rem; font-family: var(--font-mono); font-size: 0.825rem; line-height: 1.65; color: var(--text-dim); }
+    .post-body pre code { background: none; border: none; padding: 0; font-size: inherit; color: inherit; }
+    .post-body pre .c { color: var(--text-muted); } .post-body pre .k { color: var(--accent-cyan); } .post-body pre .s { color: var(--accent-green); } .post-body pre .n { color: var(--text-primary); } .post-body pre .m { color: var(--accent-amber); }
+    .callout { border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 0.9375rem; line-height: 1.65; }
+    .callout.tip { background: var(--accent-green-dim); border-left: 3px solid var(--accent-green); color: var(--text-dim); }
+    .callout.warning { background: rgba(245,158,11,0.08); border-left: 3px solid var(--accent-amber); color: var(--text-dim); }
+    .callout.info { background: var(--accent-cyan-dim); border-left: 3px solid var(--accent-cyan); color: var(--text-dim); }
+    .callout strong { color: var(--text-primary); }
+    .comparison-table { width: 100%; border-collapse: collapse; margin: 1.25rem 0 1.75rem; font-size: 0.875rem; }
+    .comparison-table th { background: var(--surface); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--accent-cyan-border); }
+    .comparison-table td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-dim); vertical-align: top; }
+    .comparison-table tr:last-child td { border-bottom: none; }
+    .comparison-table tr:hover td { background: var(--surface); }
+    .comparison-table td strong { color: var(--text-primary); }
+    .author-card { display: flex; gap: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-top: 3rem; align-items: flex-start; }
+    .author-card .author-info h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+    .author-card .author-info p { font-size: 0.875rem; color: var(--text-dim); margin-bottom: 0.75rem; }
+    .author-card .author-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .author-card .author-links a { font-size: 0.8125rem; display: flex; align-items: center; gap: 0.35rem; }
+    .author-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-cyan-dim); border: 2px solid var(--accent-cyan-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--font-mono); font-weight: 800; font-size: 1.1rem; color: var(--accent-cyan); }
+    .site-footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+    @media (max-width: 640px) { .article-wrap { padding: 2rem 1.25rem 4rem; } .site-header { padding: 1rem 1.25rem; } .author-card { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All Posts</a>
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <header class="post-header">
+        <div class="post-breadcrumb">
+          <a href="https://danielportfolio.eddesucesso.tech/">Home</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <a href="index.html">Blog</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <span>Apache Spark</span>
+        </div>
+
+        <div class="post-tags">
+          <span class="tag">Apache Spark</span>
+          <span class="tag green">PySpark</span>
+          <span class="tag green">Performance</span>
+          <span class="tag amber">Optimization</span>
+        </div>
+
+        <h1>Apache Spark Performance Tuning: Fix OOM, Skew &amp; Slow Shuffles in Production</h1>
+
+        <div class="post-meta">
+          <span class="author"><i class="fa-solid fa-user-circle" aria-hidden="true"></i> Daniel Cruz Rodrigues</span>
+          <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 2026</span>
+          <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 14 min read</span>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Table of contents">
+        <h2>// Contents</h2>
+        <ol>
+          <li><a href="#diagnose-first">Diagnose Before You Tune</a></li>
+          <li><a href="#executor-sizing">Executor Sizing: The Fat vs Thin Executor Debate</a></li>
+          <li><a href="#oom-errors">Fixing OutOfMemoryError</a></li>
+          <li><a href="#data-skew">Eliminating Data Skew</a></li>
+          <li><a href="#shuffle-tuning">Shuffle Tuning</a></li>
+          <li><a href="#aqe">Adaptive Query Execution (AQE)</a></li>
+          <li><a href="#join-strategies">Join Strategies: Broadcast, Sort-Merge &amp; Bucket Joins</a></li>
+          <li><a href="#file-formats">File Format &amp; Partition Optimisation</a></li>
+          <li><a href="#checklist">Production Tuning Checklist</a></li>
+        </ol>
+      </nav>
+
+      <div class="post-body">
+
+        <h2 id="diagnose-first">1. Diagnose Before You Tune</h2>
+        <p>
+          The most common mistake in Spark tuning is changing configuration blindly. Before touching a single parameter, open the <strong>Spark UI</strong> and read it. Every performance problem leaves a distinct signature — once you recognise the patterns, tuning becomes systematic rather than superstitious.
+        </p>
+        <p>
+          I've seen teams spend days tweaking <code>spark.sql.shuffle.partitions</code> when their real problem was a broadcast join hitting a 10 GB lookup table. The Spark UI would have shown them a 40-minute sort-merge join stage in 30 seconds. Read the UI first.
+        </p>
+
+        <h3>Key Spark UI signals</h3>
+        <table class="comparison-table">
+          <thead>
+            <tr><th>What you see</th><th>What it means</th><th>Where to look</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>One task 10× slower than others</strong></td>
+              <td>Data skew — one partition is disproportionately large</td>
+              <td>Stages → task duration distribution</td>
+            </tr>
+            <tr>
+              <td><strong>Spill to disk &gt; 0</strong></td>
+              <td>Executor memory too small for the shuffle/aggregation</td>
+              <td>Stages → "Shuffle Spill (Memory)" column</td>
+            </tr>
+            <tr>
+              <td><strong>GC time &gt; 10% of task time</strong></td>
+              <td>Too many objects in heap; executor overhead too low</td>
+              <td>Executors tab → "GC Time"</td>
+            </tr>
+            <tr>
+              <td><strong>Thousands of tiny tasks</strong></td>
+              <td>Over-partitioned data — too many small files</td>
+              <td>Stages → task count vs data size</td>
+            </tr>
+            <tr>
+              <td><strong>Long "Getting Result" phase</strong></td>
+              <td>Driver collecting too much data (large <code>.collect()</code>)</td>
+              <td>Jobs → event timeline</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout info">
+          <strong>Spark History Server on AWS:</strong> On EMR, the Spark History Server is available at port 18080 on the primary node. On Databricks, it's under Cluster → Spark UI. On AWS Glue, enable job metrics and use the CloudWatch dashboard — the Spark UI isn't directly accessible, but Glue exposes shuffle read/write bytes and heap usage as metrics.
+        </div>
+
+        <h2 id="executor-sizing">2. Executor Sizing: The Fat vs Thin Executor Debate</h2>
+        <p>
+          How you partition vCPUs and memory across executors has a larger impact on performance than most configuration parameters. There are two schools of thought: <em>fat executors</em> (few executors, many cores each) and <em>thin executors</em> (many executors, few cores each).
+        </p>
+
+        <h3>The 4-core rule</h3>
+        <p>
+          In practice, <strong>4–5 cores per executor</strong> is the sweet spot for most batch ETL workloads. More than 5 cores per executor causes HDFS throughput degradation (HDFS client threads compete at the file system level). Fewer than 3 cores wastes JVM overhead — each executor has a fixed per-process cost.
+        </p>
+
+<pre><code><span class="c"># Good: 4 cores, ~14 GB executor memory on a 16-core, 64 GB node
+# Leaves 1 core + memory for OS, YARN NM, and off-heap buffers</span>
+
+<span class="c"># Formula: executors_per_node = floor((node_cores - 1) / executor_cores)</span>
+<span class="c">#          executor_memory    = floor((node_memory - OS_overhead) / executors_per_node) * 0.9</span>
+
+<span class="c"># For r6i.4xlarge (16 vCPU, 128 GB):</span>
+<span class="c">#   executors_per_node = floor((16 - 1) / 4) = 3</span>
+<span class="c">#   executor_memory    = floor((128 - 2) / 3) * 0.9 ≈ 37 GB</span>
+<span class="c">#   memoryOverhead     = max(384 MB, 0.1 * 37 GB) ≈ 4 GB</span>
+
+<span class="n">spark.executor.cores</span>         <span class="m">4</span>
+<span class="n">spark.executor.memory</span>        <span class="m">37g</span>
+<span class="n">spark.executor.memoryOverhead</span> <span class="m">4g</span>
+<span class="n">spark.driver.memory</span>          <span class="m">8g</span>
+<span class="n">spark.driver.maxResultSize</span>   <span class="m">4g</span></code></pre>
+
+        <div class="callout warning">
+          <strong>memoryOverhead is not optional:</strong> Overhead covers off-heap memory — PySpark's Python worker processes, native Arrow buffers, and OS networking. The default is <code>max(384MB, executor_memory * 0.1)</code>. If your job uses pandas UDFs, Arrow-based operations, or reads ORC/Parquet with native readers, increase overhead to at least 20% of executor memory. Skimping here causes container killed by YARN — a silent OOM that looks like an executor lost.
+        </div>
+
+        <h2 id="oom-errors">3. Fixing OutOfMemoryError</h2>
+        <p>
+          Spark OOM errors come in two distinct flavours. Mixing up the fix is the most common tuning mistake.
+        </p>
+
+        <h3>Java heap OOM (GC overhead exceeded)</h3>
+        <p>
+          <code>java.lang.OutOfMemoryError: GC overhead limit exceeded</code> — the JVM is spending more than 98% of time in garbage collection. Causes: too many cached DataFrames, wide schemas with hundreds of columns, or excessive object creation in UDFs.
+        </p>
+        <ul>
+          <li>Increase <code>spark.executor.memory</code>.</li>
+          <li>Unpersist DataFrames after use: <code>df.unpersist()</code>.</li>
+          <li>Use <code>spark.memory.fraction</code> (default 0.6) to give more heap to execution vs storage. Raise to 0.7–0.75 if you have few cached DataFrames but large aggregations.</li>
+          <li>Replace Python UDFs with native Spark SQL functions — Python UDFs serialise each row across the JVM/Python boundary, creating enormous GC pressure.</li>
+        </ul>
+
+        <h3>Container killed by YARN / OOM Killer</h3>
+        <p>
+          <code>Container killed by YARN for exceeding memory limits</code> — the OS OOM killer terminated the JVM process because total container memory (JVM heap + overhead) exceeded the YARN container allocation.
+        </p>
+        <ul>
+          <li>Increase <code>spark.executor.memoryOverhead</code> — this is almost always the fix for YARN kills.</li>
+          <li>If using pandas UDFs or Arrow: add <code>spark.sql.execution.arrow.pyspark.enabled true</code> and ensure overhead is at least 25% of executor memory.</li>
+          <li>Check for memory leaks in broadcast variables — very large broadcasts that are not unpersisted accumulate off-heap.</li>
+        </ul>
+
+<pre><code><span class="c"># Diagnose OOM type: check YARN container memory limit vs actual usage</span>
+<span class="c"># In EMR: yarn logs -applicationId application_XXX | grep -i "memory\|killed\|oom"</span>
+<span class="c"># In Databricks: cluster event log → "executorRemoved" with reason</span>
+
+<span class="c"># Fix for YARN container kill (most common case):</span>
+<span class="n">spark.executor.memoryOverhead</span>  <span class="m">6g</span>   <span class="c"># was default ~3.7g, now explicit</span>
+<span class="n">spark.memory.offHeap.enabled</span>   <span class="n">true</span>
+<span class="n">spark.memory.offHeap.size</span>      <span class="m">4g</span>   <span class="c"># native memory for column vectors</span></code></pre>
+
+        <h2 id="data-skew">4. Eliminating Data Skew</h2>
+        <p>
+          Data skew is the single most common cause of slow Spark jobs. It happens when data is unevenly distributed across partitions — one task processes 10 GB while 199 tasks process 50 MB each. The job is only as fast as the slowest task.
+        </p>
+        <p>
+          The canonical example: joining a user event table on <code>user_id</code> where 5% of users generate 60% of events (power users, bots, internal accounts). Those users land in a handful of partitions that take 10× longer than the rest.
+        </p>
+
+        <h3>Technique 1: Salting for GroupBy / Aggregation skew</h3>
+
+<pre><code><span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+
+<span class="n">SALT_BUCKETS</span> <span class="n">=</span> <span class="m">20</span>
+
+<span class="c"># Phase 1: salt the key and aggregate within salted partitions</span>
+<span class="n">df_salted</span> <span class="n">=</span> <span class="n">df</span><span class="n">.withColumn</span><span class="n">(</span>
+    <span class="s">"salt"</span><span class="n">,</span> <span class="n">(</span><span class="n">F</span><span class="n">.rand</span><span class="n">()</span> <span class="n">*</span> <span class="n">SALT_BUCKETS</span><span class="n">)</span><span class="n">.cast</span><span class="n">(</span><span class="s">"int"</span><span class="n">)</span>
+<span class="n">)</span>
+
+<span class="n">df_partial</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">df_salted</span>
+    <span class="n">.groupBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span> <span class="s">"salt"</span><span class="n">)</span>
+    <span class="n">.agg</span><span class="n">(</span><span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"amount"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"partial_sum"</span><span class="n">),</span> <span class="n">F</span><span class="n">.count</span><span class="n">(</span><span class="s">"*"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"partial_count"</span><span class="n">))</span>
+<span class="n">)</span>
+
+<span class="c"># Phase 2: merge partials — now each partition is evenly sized</span>
+<span class="n">df_result</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">df_partial</span>
+    <span class="n">.groupBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">)</span>
+    <span class="n">.agg</span><span class="n">(</span><span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"partial_sum"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"total_amount"</span><span class="n">),</span> <span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"partial_count"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"event_count"</span><span class="n">))</span>
+<span class="n">)</span></code></pre>
+
+        <h3>Technique 2: Skewed join with AQE (Spark 3.0+)</h3>
+
+<pre><code><span class="c"># Enable AQE skew join handling — auto-detects and splits skewed partitions</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>
+<span class="c"># Partition is skewed if it's &gt; this threshold AND &gt; 5× median partition size</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes"</span><span class="n">,</span> <span class="s">"256m"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.skewedPartitionFactor"</span><span class="n">,</span> <span class="s">"5"</span><span class="n">)</span>
+
+<span class="c"># With AQE enabled, Spark splits skewed partitions automatically at runtime.</span>
+<span class="c"># No code changes needed — just enable and let the optimizer handle it.</span>
+<span class="n">df_joined</span> <span class="n">=</span> <span class="n">events</span><span class="n">.join</span><span class="n">(</span><span class="n">users</span><span class="n">,</span> <span class="s">"user_id"</span><span class="n">,</span> <span class="s">"left"</span><span class="n">)</span></code></pre>
+
+        <div class="callout tip">
+          <strong>When AQE skew join isn't enough:</strong> AQE works well for moderate skew (1 partition = 5–10× median). For extreme skew — a single <code>null</code> key that represents 30% of the dataset — filter it out first, process it separately, and union the results. AQE cannot split a partition that contains only one logical key value.
+        </div>
+
+        <h2 id="shuffle-tuning">5. Shuffle Tuning</h2>
+        <p>
+          The shuffle is the most expensive operation in Spark — it involves serialising data, writing to disk, transferring over the network, and deserialising on the target executor. Minimising shuffles and sizing them correctly is the highest-leverage optimisation available.
+        </p>
+
+        <h3>Partition count</h3>
+        <p>
+          <code>spark.sql.shuffle.partitions</code> defaults to 200 — fine for small datasets, far too low for anything above 10 GB, and wildly too high for tiny datasets (creating thousands of 1 KB files on S3). The target partition size is <strong>100–200 MB</strong> of uncompressed data.
+        </p>
+
+<pre><code><span class="c"># Rule of thumb: shuffle_partitions = total_shuffle_data_GB * 5
+# For a 50 GB shuffle → 250 partitions. For a 500 GB shuffle → 2500 partitions.
+
+# With AQE enabled, set this to a high upper bound — AQE coalesces automatically:</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.shuffle.partitions"</span><span class="n">,</span> <span class="s">"2000"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.coalescePartitions.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>
+<span class="c"># AQE coalesces down to this minimum (don't go below 1 per core):</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.coalescePartitions.minPartitionNum"</span><span class="n">,</span> <span class="s">"50"</span><span class="n">)</span></code></pre>
+
+        <h3>Avoiding unnecessary shuffles</h3>
+        <ul>
+          <li><strong>Pre-partition your writes</strong> by the join key so downstream jobs can skip the shuffle stage entirely: <code>df.repartition("user_id").write.partitionBy("date")</code>.</li>
+          <li><strong>Use <code>coalesce()</code> over <code>repartition()</code></strong> when reducing partition count — <code>coalesce</code> avoids a full shuffle by combining local partitions.</li>
+          <li><strong>Cache strategically</strong> — if a DataFrame is used in multiple downstream operations, <code>df.cache()</code> or <code>df.persist(StorageLevel.MEMORY_AND_DISK)</code> eliminates recomputation from the lineage.</li>
+        </ul>
+
+        <h2 id="aqe">6. Adaptive Query Execution (AQE)</h2>
+        <p>
+          AQE (introduced in Spark 3.0) re-optimises the query plan <em>at runtime</em>, using statistics collected from completed shuffle stages. It is one of the most impactful Spark features of the last five years. Enable it on every production job running Spark 3.x.
+        </p>
+
+        <table class="comparison-table">
+          <thead>
+            <tr><th>AQE Feature</th><th>What it does</th><th>Config flag</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Partition coalescing</strong></td>
+              <td>Merges small post-shuffle partitions into larger ones, eliminating thousands of tiny tasks</td>
+              <td><code>coalescePartitions.enabled</code></td>
+            </tr>
+            <tr>
+              <td><strong>Skew join handling</strong></td>
+              <td>Splits skewed partitions and replicates the matching side — no code changes needed</td>
+              <td><code>skewJoin.enabled</code></td>
+            </tr>
+            <tr>
+              <td><strong>Dynamic join switching</strong></td>
+              <td>Converts a planned sort-merge join to a broadcast join if one side is small enough after the shuffle</td>
+              <td><code>localShuffleReader.enabled</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+<pre><code><span class="c"># Full AQE configuration block — safe to apply to all Spark 3.x jobs</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.enabled"</span><span class="n">,</span>                              <span class="s">"true"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.coalescePartitions.enabled"</span><span class="n">,</span>            <span class="s">"true"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.coalescePartitions.minPartitionNum"</span><span class="n">,</span>     <span class="s">"50"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.advisoryPartitionSizeInBytes"</span><span class="n">,</span>           <span class="s">"128m"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.enabled"</span><span class="n">,</span>                     <span class="s">"true"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes"</span><span class="n">,</span> <span class="s">"256m"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.localShuffleReader.enabled"</span><span class="n">,</span>             <span class="s">"true"</span><span class="n">)</span></code></pre>
+
+        <h2 id="join-strategies">7. Join Strategies: Broadcast, Sort-Merge &amp; Bucket Joins</h2>
+
+        <h3>Broadcast join</h3>
+        <p>
+          When one side of the join fits in memory (&lt;10 MB by default, configurable), Spark broadcasts it to all executors — no shuffle needed. This is the fastest join. Increase the auto-broadcast threshold for large lookup tables that fit in executor memory:
+        </p>
+
+<pre><code><span class="c"># Increase from default 10 MB to 100 MB — safe for most dim tables</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.autoBroadcastJoinThreshold"</span><span class="n">,</span> <span class="s">"104857600"</span><span class="n">)</span>  <span class="c"># 100 MB</span>
+
+<span class="c"># Or force a broadcast hint on a specific DataFrame:</span>
+<span class="k">from</span> <span class="n">pyspark.sql.functions</span> <span class="k">import</span> <span class="n">broadcast</span>
+<span class="n">df_result</span> <span class="n">=</span> <span class="n">large_df</span><span class="n">.join</span><span class="n">(</span><span class="n">broadcast</span><span class="n">(</span><span class="n">small_dim</span><span class="n">),</span> <span class="s">"dim_id"</span><span class="n">)</span></code></pre>
+
+        <div class="callout warning">
+          <strong>Broadcast OOM:</strong> Each executor loads the entire broadcast table into memory. A 500 MB broadcast on a 50-executor cluster uses 25 GB of total executor heap — across all nodes simultaneously. If you see executor OOM immediately after a join, check whether a hint is forcing a broadcast of a table too large for your executor memory budget.
+        </div>
+
+        <h3>Bucket join (the shuffle eliminator for repeated joins)</h3>
+        <p>
+          If you join the same two large tables repeatedly across multiple jobs, bucket them once and eliminate the shuffle permanently. Bucketing pre-partitions and sorts data by the join key at write time:
+        </p>
+
+<pre><code><span class="c"># Write events bucketed by user_id — do this once during pipeline setup</span>
+<span class="n">events</span><span class="n">.write</span><span class="n">.bucketBy</span><span class="n">(</span><span class="m">256</span><span class="n">,</span> <span class="s">"user_id"</span><span class="n">)</span><span class="n">.sortBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">)</span><span class="n">.saveAsTable</span><span class="n">(</span><span class="s">"events_bucketed"</span><span class="n">)</span>
+<span class="n">users</span><span class="n">.write</span><span class="n">.bucketBy</span><span class="n">(</span><span class="m">256</span><span class="n">,</span> <span class="s">"user_id"</span><span class="n">)</span><span class="n">.sortBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">)</span><span class="n">.saveAsTable</span><span class="n">(</span><span class="s">"users_bucketed"</span><span class="n">)</span>
+
+<span class="c"># Subsequent jobs can join with zero shuffle — Spark detects compatible bucketing</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.sources.bucketing.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>
+<span class="n">df</span> <span class="n">=</span> <span class="n">spark</span><span class="n">.table</span><span class="n">(</span><span class="s">"events_bucketed"</span><span class="n">)</span><span class="n">.join</span><span class="n">(</span><span class="n">spark</span><span class="n">.table</span><span class="n">(</span><span class="s">"users_bucketed"</span><span class="n">)</span><span class="n">,</span> <span class="s">"user_id"</span><span class="n">)</span>
+<span class="c"># Check explain() — you should see "BucketedScan" and no "Exchange" nodes</span></code></pre>
+
+        <h2 id="file-formats">8. File Format &amp; Partition Optimisation</h2>
+
+        <h3>Parquet over CSV, always</h3>
+        <p>
+          Parquet's columnar storage and built-in statistics (min/max per row group) allow Spark to skip entire chunks of data without reading them — called <strong>predicate pushdown</strong>. A filtered read on a 1 TB Parquet table can read less than 10 GB if the filter aligns with column statistics. CSV has none of this.
+        </p>
+
+        <h3>Partition pruning</h3>
+        <p>
+          Physical partition layout on S3/HDFS is the second tier of pushdown. Always partition your data by the columns most frequently used in <code>WHERE</code> clauses — typically <code>date</code>, <code>region</code>, or <code>event_type</code>. A job reading <code>WHERE date = '2026-06-05'</code> on a date-partitioned table reads only one day's data regardless of total table size.
+        </p>
+
+        <h3>Small file problem</h3>
+        <p>
+          Too many small Parquet files (under 32 MB) cause excessive S3 LIST operations and per-file JVM overhead. After a high-concurrency write or after many micro-batch appends, compact files:
+        </p>
+
+<pre><code><span class="c"># Compact small files in a partition — read and rewrite with target file size</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.files.maxPartitionBytes"</span><span class="n">,</span> <span class="s">"134217728"</span><span class="n">)</span>  <span class="c"># 128 MB per task</span>
+
+<span class="n">df</span> <span class="n">=</span> <span class="n">spark</span><span class="n">.read</span><span class="n">.parquet</span><span class="n">(</span><span class="s">"s3://bucket/silver/events/date=2026-06-05/"</span><span class="n">)</span>
+<span class="c"># repartition to target ~200 MB files</span>
+<span class="n">target_files</span> <span class="n">=</span> <span class="n">max</span><span class="n">(</span><span class="m">1</span><span class="n">,</span> <span class="n">df</span><span class="n">.rdd</span><span class="n">.getNumPartitions</span><span class="n">()</span> <span class="n">//</span> <span class="m">4</span><span class="n">)</span>
+<span class="n">df</span><span class="n">.coalesce</span><span class="n">(</span><span class="n">target_files</span><span class="n">)</span><span class="n">.write</span><span class="n">.mode</span><span class="n">(</span><span class="s">"overwrite"</span><span class="n">)</span><span class="n">.parquet</span><span class="n">(</span><span class="s">"s3://bucket/silver/events/date=2026-06-05/"</span><span class="n">)</span></code></pre>
+
+        <h2 id="checklist">9. Production Tuning Checklist</h2>
+        <p>Before deploying any Spark job to production, run through this checklist:</p>
+
+        <table class="comparison-table">
+          <thead>
+            <tr><th>Category</th><th>Check</th><th>Why it matters</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Memory</strong></td><td>memoryOverhead ≥ 20% executor memory</td><td>Prevents YARN container kills</td></tr>
+            <tr><td><strong>Memory</strong></td><td>No Python UDFs on hot paths</td><td>PySpark UDFs 10–100× slower than SQL functions</td></tr>
+            <tr><td><strong>Shuffle</strong></td><td>AQE enabled</td><td>Auto-coalesces, fixes skew, switches join strategies</td></tr>
+            <tr><td><strong>Shuffle</strong></td><td>shuffle.partitions set ≥ data_GB × 5</td><td>Prevents giant partitions and spill</td></tr>
+            <tr><td><strong>Joins</strong></td><td>Small dims use broadcast hint</td><td>Eliminates shuffle for dimension lookups</td></tr>
+            <tr><td><strong>Joins</strong></td><td>Skewed keys identified and salted or handled by AQE</td><td>One slow task blocks the whole stage</td></tr>
+            <tr><td><strong>I/O</strong></td><td>Parquet with explicit schema</td><td>Schema inference scans all files — slow and brittle</td></tr>
+            <tr><td><strong>I/O</strong></td><td>Partition columns match filter patterns</td><td>Partition pruning can eliminate 90%+ of data read</td></tr>
+            <tr><td><strong>I/O</strong></td><td>File size 128–256 MB per file</td><td>Too small → S3 overhead; too large → task parallelism lost</td></tr>
+            <tr><td><strong>Caching</strong></td><td>Unpersist cached DataFrames after last use</td><td>Cached data held in executor memory blocks execution memory</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <strong>Real numbers from production:</strong> On the Banco Itaú data platform at NTT DATA, applying these techniques to a 2-hour daily Spark job — enabling AQE, fixing a <code>null</code>-key skew with filter+union, and increasing memoryOverhead — reduced runtime to 47 minutes and eliminated all executor OOM failures. The same job had been failing intermittently for three months before the root causes were identified with the Spark UI.
+        </div>
+
+        <p>
+          Spark tuning is a diagnostic discipline, not a configuration game. Measure first, change one thing at a time, and validate with the Spark UI after every change. The payoff is real — well-tuned Spark jobs consistently run 40–70% faster and cost a fraction of their unoptimised baseline.
+        </p>
+        <p>
+          Have a specific performance problem? Find me on <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> — I'm happy to review a Spark UI screenshot.
+        </p>
+
+      </div>
+
+      <aside class="author-card" aria-label="About the author">
+        <div class="author-avatar" aria-hidden="true">DC</div>
+        <div class="author-info">
+          <h3>Daniel Cruz Rodrigues</h3>
+          <p>Senior Data Engineer at NTT DATA (Banco Itaú). Databricks &amp; AWS specialist. 6× AWS certified. Building large-scale Data Lakes processing 20M+ records/day.</p>
+          <div class="author-links">
+            <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-globe" aria-hidden="true"></i> Portfolio</a>
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener"><i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn</a>
+            <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener"><i class="fa-solid fa-rss" aria-hidden="true"></i> Hashnode</a>
+            <a href="https://github.com/EddesucessoCloud/" target="_blank" rel="noopener"><i class="fa-brands fa-github" aria-hidden="true"></i> GitHub</a>
+          </div>
+        </div>
+      </aside>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Daniel Cruz Rodrigues · <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a> · <a href="index.html">Blog</a> · <a href="mailto:danielcruz.alu.lmb@gmail.com">Contact</a></p>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A production guide to AWS Glue — Data Catalog, Crawlers, PySpark job optimisation, DPU sizing, and when to choose Glue over EMR or Step Functions." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <title>AWS Glue in Production: Serverless ETL Pipelines That Scale | Daniel Cruz Rodrigues</title>
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/aws-glue-etl-pipelines.html" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="AWS Glue in Production: Serverless ETL Pipelines That Scale" />
+  <meta property="og:description" content="A senior data engineer's guide to AWS Glue — Data Catalog, Crawlers, PySpark job optimisation, DPU sizing, and when to choose Glue over EMR." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/aws-glue-etl-pipelines.html" />
+  <meta property="og:image" content="https://danielportfolio.eddesucesso.tech/images/cloud-resume-challenge-cover.webp" />
+
+  <!-- Schema: BlogPosting -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "AWS Glue in Production: Building Serverless ETL Pipelines That Actually Scale",
+    "description": "A senior data engineer's guide to AWS Glue — Data Catalog, Crawlers, PySpark job optimisation, DPU sizing, and when to use Glue vs EMR or Step Functions.",
+    "author": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues",
+      "url": "https://danielportfolio.eddesucesso.tech/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues"
+    },
+    "datePublished": "2026-06-05",
+    "dateModified": "2026-06-05",
+    "url": "https://danielportfolio.eddesucesso.tech/blog/aws-glue-etl-pipelines.html",
+    "keywords": ["AWS Glue", "ETL", "PySpark", "Data Engineering", "Serverless", "AWS", "Data Lake"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:              #080e1c;
+      --surface:         rgba(255,255,255,0.04);
+      --surface-hover:   rgba(255,255,255,0.07);
+      --text-primary:    #e8edf3;
+      --text-dim:        #b8c7d4;
+      --text-muted:      #7a8fa3;
+      --accent-cyan:     #5bbad5;
+      --accent-cyan-dim: rgba(91,186,213,0.12);
+      --accent-cyan-border: rgba(91,186,213,0.25);
+      --accent-green:    #10d5a0;
+      --accent-green-dim: rgba(16,213,160,0.10);
+      --accent-green-border: rgba(16,213,160,0.30);
+      --accent-amber:    #f59e0b;
+      --border:          rgba(91,186,213,0.16);
+      --font-sans:       'Inter', system-ui, sans-serif;
+      --font-mono:       'JetBrains Mono', monospace;
+      --radius-sm:       8px;
+      --radius-md:       12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent-cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(8,14,28,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 40;
+    }
+
+    .site-header .logo {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      color: var(--accent-cyan);
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .site-header nav a {
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      margin-left: 1.5rem;
+      transition: color 150ms;
+    }
+    .site-header nav a:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    /* ── Article layout ── */
+    .article-wrap {
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 3rem 2rem 6rem;
+    }
+
+    /* ── Post header ── */
+    .post-header { margin-bottom: 2.5rem; }
+
+    .post-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+    .post-breadcrumb a { color: var(--text-muted); }
+    .post-breadcrumb a:hover { color: var(--accent-cyan); text-decoration: none; }
+
+    .post-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan-border);
+    }
+
+    .tag.green {
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      border-color: var(--accent-green-border);
+    }
+
+    .tag.amber {
+      background: rgba(245,158,11,0.12);
+      color: var(--accent-amber);
+      border-color: rgba(245,158,11,0.30);
+    }
+
+    .post-header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.25rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .post-meta .author {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Table of contents ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-cyan);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .toc h2 {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 0.75rem;
+    }
+
+    .toc ol {
+      list-style: decimal;
+      padding-left: 1.25rem;
+    }
+
+    .toc li {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+
+    .toc li a {
+      color: var(--text-dim);
+    }
+    .toc li a:hover { color: var(--accent-cyan); }
+
+    /* ── Article body ── */
+    .post-body h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 2.5rem 0 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .post-body h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin: 1.75rem 0 0.5rem;
+    }
+
+    .post-body p {
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      font-size: 0.9875rem;
+      line-height: 1.75;
+    }
+
+    .post-body ul, .post-body ol {
+      color: var(--text-dim);
+      padding-left: 1.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.9875rem;
+    }
+
+    .post-body li {
+      margin-bottom: 0.4rem;
+      line-height: 1.65;
+    }
+
+    .post-body strong { color: var(--text-primary); font-weight: 600; }
+
+    .post-body code {
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--accent-cyan-border);
+    }
+
+    .post-body pre {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-green);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1.25rem 0 1.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.825rem;
+      line-height: 1.65;
+      color: var(--text-dim);
+    }
+
+    .post-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    .post-body pre .c  { color: var(--text-muted); }   /* comment */
+    .post-body pre .k  { color: var(--accent-cyan); }   /* keyword */
+    .post-body pre .s  { color: var(--accent-green); }  /* string */
+    .post-body pre .n  { color: var(--text-primary); }  /* name */
+    .post-body pre .m  { color: var(--accent-amber); }  /* number */
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-size: 0.9375rem;
+      line-height: 1.65;
+    }
+
+    .callout.tip {
+      background: var(--accent-green-dim);
+      border-left: 3px solid var(--accent-green);
+      color: var(--text-dim);
+    }
+
+    .callout.warning {
+      background: rgba(245,158,11,0.08);
+      border-left: 3px solid var(--accent-amber);
+      color: var(--text-dim);
+    }
+
+    .callout.info {
+      background: var(--accent-cyan-dim);
+      border-left: 3px solid var(--accent-cyan);
+      color: var(--text-dim);
+    }
+
+    .callout strong { color: var(--text-primary); }
+
+    /* ── Comparison table ── */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0 1.75rem;
+      font-size: 0.875rem;
+    }
+
+    .comparison-table th {
+      background: var(--surface);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--accent-cyan-border);
+    }
+
+    .comparison-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+
+    .comparison-table tr:last-child td { border-bottom: none; }
+    .comparison-table tr:hover td { background: var(--surface); }
+    .comparison-table td strong { color: var(--text-primary); }
+
+    /* ── Author card ── */
+    .author-card {
+      display: flex;
+      gap: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-top: 3rem;
+      align-items: flex-start;
+    }
+
+    .author-card .author-info h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .author-card .author-info p {
+      font-size: 0.875rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+
+    .author-card .author-links {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .author-card .author-links a {
+      font-size: 0.8125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .author-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent-cyan-dim);
+      border: 2px solid var(--accent-cyan-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+    }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+
+    @media (max-width: 640px) {
+      .article-wrap { padding: 2rem 1.25rem 4rem; }
+      .site-header { padding: 1rem 1.25rem; }
+      .author-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All Posts</a>
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <header class="post-header">
+        <div class="post-breadcrumb">
+          <a href="https://danielportfolio.eddesucesso.tech/">Home</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <a href="index.html">Blog</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <span>AWS Glue</span>
+        </div>
+
+        <div class="post-tags">
+          <span class="tag">AWS Glue</span>
+          <span class="tag green">ETL</span>
+          <span class="tag green">PySpark</span>
+          <span class="tag amber">Data Lake</span>
+        </div>
+
+        <h1>AWS Glue in Production: Building Serverless ETL Pipelines That Actually Scale</h1>
+
+        <div class="post-meta">
+          <span class="author"><i class="fa-solid fa-user-circle" aria-hidden="true"></i> Daniel Cruz Rodrigues</span>
+          <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 2026</span>
+          <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        </div>
+      </header>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <h2>// Contents</h2>
+        <ol>
+          <li><a href="#what-is-glue">What is AWS Glue?</a></li>
+          <li><a href="#core-components">Core Components Deep Dive</a></li>
+          <li><a href="#job-types">Job Types: Choosing the Right Runtime</a></li>
+          <li><a href="#pyspark-example">Production PySpark Job Example</a></li>
+          <li><a href="#dpu-optimization">DPU Sizing &amp; Cost Optimisation</a></li>
+          <li><a href="#glue-vs-alternatives">Glue vs EMR vs Lambda vs Step Functions</a></li>
+          <li><a href="#best-practices">Production Best Practices</a></li>
+          <li><a href="#conclusion">Conclusion</a></li>
+        </ol>
+      </nav>
+
+      <!-- Body -->
+      <div class="post-body">
+
+        <h2 id="what-is-glue">1. What is AWS Glue?</h2>
+        <p>
+          AWS Glue is a fully managed, serverless Extract-Transform-Load (ETL) service. It handles the undifferentiated heavy lifting of provisioning clusters, managing dependencies, and scaling workers — so you focus on business logic, not infrastructure. Under the hood it runs Apache Spark (and Python shell for lightweight jobs), so if you already know PySpark you're immediately productive.
+        </p>
+        <p>
+          I've used AWS Glue extensively at NTT DATA on the Banco Itaú data platform to build bronze-to-silver and silver-to-gold transformation layers over Delta Lake on S3, with the Data Catalog acting as the central metadata layer shared across Athena, Redshift Spectrum, and EMR.
+        </p>
+
+        <div class="callout info">
+          <strong>Key positioning:</strong> Glue is not just an ETL runner. The <strong>Data Catalog</strong> is arguably its most valuable component — a Hive-compatible metastore that decouples schema from storage and powers downstream analytics services.
+        </div>
+
+        <h2 id="core-components">2. Core Components Deep Dive</h2>
+
+        <h3>Data Catalog</h3>
+        <p>
+          The Data Catalog is a centralised metadata repository compatible with the Apache Hive Metastore. Databases, tables, and schemas are stored here and shared across Glue Jobs, Athena, Redshift Spectrum, and EMR — no per-service schema duplication.
+        </p>
+        <ul>
+          <li><strong>Databases</strong> — logical namespace groupings (e.g., <code>bronze</code>, <code>silver</code>, <code>gold</code>).</li>
+          <li><strong>Tables</strong> — metadata definitions pointing to S3 prefixes, including partition keys, SerDe properties, and column types.</li>
+          <li><strong>Connections</strong> — JDBC definitions for RDS, Redshift, and other JDBC-compatible sources, stored securely for job reuse.</li>
+        </ul>
+
+        <h3>Crawlers</h3>
+        <p>
+          Crawlers automatically inspect data stores (S3, JDBC, DynamoDB) and populate the Data Catalog. They detect schema, partitions, and data formats (Parquet, ORC, JSON, CSV, Avro).
+        </p>
+        <div class="callout warning">
+          <strong>Production warning:</strong> Crawlers run on a schedule and re-infer schema on every run. For high-cardinality partition tables, this is slow and expensive. Prefer <strong>programmatic table registration</strong> via the Glue SDK or Terraform for production pipelines — reserve Crawlers for data discovery on new sources.
+        </div>
+
+        <h3>Glue Studio</h3>
+        <p>
+          A visual drag-and-drop ETL authoring tool. Useful for quick prototyping and for less technical stakeholders to understand pipeline shape. For production code, always use the underlying Python/Scala scripts directly — the generated code adds unnecessary abstraction layers.
+        </p>
+
+        <h3>Glue Data Quality</h3>
+        <p>
+          A native data quality engine built on the open-source <strong>Deequ</strong> library. Define rules with DQDL (Data Quality Definition Language) and attach them to ETL jobs or Catalog tables. Failed rules can halt a pipeline or write quarantine records — critical for data SLAs.
+        </p>
+
+        <h2 id="job-types">3. Job Types: Choosing the Right Runtime</h2>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Runtime</th>
+              <th>DPU Unit</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Spark ETL</strong></td>
+              <td>PySpark / Scala</td>
+              <td>Standard / G.1X / G.2X / G.4X / G.8X</td>
+              <td>Large-scale batch transforms (&gt;1 GB)</td>
+            </tr>
+            <tr>
+              <td><strong>Spark Streaming</strong></td>
+              <td>PySpark (micro-batch)</td>
+              <td>G.1X / G.2X</td>
+              <td>Near-real-time S3 / Kinesis ingestion</td>
+            </tr>
+            <tr>
+              <td><strong>Python Shell</strong></td>
+              <td>Python 3.9</td>
+              <td>0.0625 or 1 DPU</td>
+              <td>Lightweight tasks, API calls, small files (&lt;100 MB)</td>
+            </tr>
+            <tr>
+              <td><strong>Ray</strong></td>
+              <td>Python (Ray)</td>
+              <td>Z.2X</td>
+              <td>ML inference, distributed Python (non-Spark)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <strong>Cost tip:</strong> Use <code>G.1X</code> workers (4 vCPU, 16 GB RAM) as default. Only scale to <code>G.2X</code> when you hit memory pressure on wide joins or large aggregations. <code>G.4X</code>/<code>G.8X</code> are rarely needed for standard ETL — they're designed for ML feature engineering at scale.
+        </div>
+
+        <h2 id="pyspark-example">4. Production PySpark Job Example</h2>
+        <p>
+          The following job reads raw JSON events from an S3 bronze prefix, applies transformations, and writes Parquet to the silver layer with dynamic partition overwrite — a core pattern in medallion architecture pipelines.
+        </p>
+
+<pre><code><span class="c"># glue_bronze_to_silver.py
+# Reads raw JSON events → writes partitioned Parquet to silver layer</span>
+<span class="k">import</span> <span class="n">sys</span>
+<span class="k">from</span> <span class="n">awsglue.transforms</span> <span class="k">import</span> <span class="n">*</span>
+<span class="k">from</span> <span class="n">awsglue.utils</span> <span class="k">import</span> <span class="n">getResolvedOptions</span>
+<span class="k">from</span> <span class="n">pyspark.context</span> <span class="k">import</span> <span class="n">SparkContext</span>
+<span class="k">from</span> <span class="n">awsglue.context</span> <span class="k">import</span> <span class="n">GlueContext</span>
+<span class="k">from</span> <span class="n">awsglue.job</span> <span class="k">import</span> <span class="n">Job</span>
+<span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+<span class="k">from</span> <span class="n">pyspark.sql.types</span> <span class="k">import</span> <span class="n">StructType</span><span class="n">, StructField</span><span class="n">, StringType</span><span class="n">, LongType</span><span class="n">, TimestampType</span>
+
+<span class="c"># ── Job init ──────────────────────────────────────────────</span>
+<span class="n">args</span> <span class="n">=</span> <span class="n">getResolvedOptions</span><span class="n">(</span><span class="n">sys</span><span class="n">.argv</span><span class="n">,</span> <span class="n">[</span><span class="s">'JOB_NAME'</span><span class="n">,</span> <span class="s">'SOURCE_PATH'</span><span class="n">,</span> <span class="s">'TARGET_PATH'</span><span class="n">]</span><span class="n">)</span>
+<span class="n">sc</span>  <span class="n">=</span> <span class="n">SparkContext</span><span class="n">()</span>
+<span class="n">gc</span>  <span class="n">=</span> <span class="n">GlueContext</span><span class="n">(</span><span class="n">sc</span><span class="n">)</span>
+<span class="n">spark</span> <span class="n">=</span> <span class="n">gc</span><span class="n">.spark_session</span>
+<span class="n">job</span>   <span class="n">=</span> <span class="n">Job</span><span class="n">(</span><span class="n">gc</span><span class="n">)</span>
+<span class="n">job</span><span class="n">.init</span><span class="n">(</span><span class="n">args</span><span class="n">[</span><span class="s">'JOB_NAME'</span><span class="n">]</span><span class="n">,</span> <span class="n">args</span><span class="n">)</span>
+
+<span class="c"># ── Explicit schema — never infer on raw data ─────────────</span>
+<span class="n">schema</span> <span class="n">=</span> <span class="n">StructType</span><span class="n">([</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">,</span>   <span class="n">StringType</span><span class="n">(),</span>    <span class="n">False</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span>    <span class="n">StringType</span><span class="n">(),</span>    <span class="n">False</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">,</span> <span class="n">StringType</span><span class="n">(),</span>    <span class="n">True</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"amount"</span><span class="n">,</span>     <span class="n">LongType</span><span class="n">(),</span>      <span class="n">True</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"ts"</span><span class="n">,</span>         <span class="n">TimestampType</span><span class="n">(),</span> <span class="n">False</span><span class="n">)</span><span class="n">,</span>
+<span class="n">])</span>
+
+<span class="c"># ── Read ──────────────────────────────────────────────────</span>
+<span class="n">df</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">spark</span><span class="n">.read</span>
+    <span class="n">.schema</span><span class="n">(</span><span class="n">schema</span><span class="n">)</span>
+    <span class="n">.option</span><span class="n">(</span><span class="s">"multiLine"</span><span class="n">,</span> <span class="n">True</span><span class="n">)</span>
+    <span class="n">.json</span><span class="n">(</span><span class="n">args</span><span class="n">[</span><span class="s">'SOURCE_PATH'</span><span class="n">]</span><span class="n">)</span>
+<span class="n">)</span>
+
+<span class="c"># ── Transform ─────────────────────────────────────────────</span>
+<span class="n">df_silver</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">df</span>
+    <span class="c"># Drop malformed rows missing primary keys</span>
+    <span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">)</span><span class="n">.isNotNull</span><span class="n">()</span> <span class="n">&amp;</span> <span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">)</span><span class="n">.isNotNull</span><span class="n">()</span><span class="n">)</span>
+    <span class="c"># Partition columns — derived from ts for efficient pruning</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"year"</span><span class="n">,</span>  <span class="n">F</span><span class="n">.year</span><span class="n">(</span><span class="s">"ts"</span><span class="n">))</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"month"</span><span class="n">,</span> <span class="n">F</span><span class="n">.month</span><span class="n">(</span><span class="s">"ts"</span><span class="n">))</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"day"</span><span class="n">,</span>   <span class="n">F</span><span class="n">.dayofmonth</span><span class="n">(</span><span class="s">"ts"</span><span class="n">))</span>
+    <span class="c"># Normalise event_type to lowercase</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">,</span> <span class="n">F</span><span class="n">.lower</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">)))</span>
+    <span class="c"># Dedup within the batch on event_id</span>
+    <span class="n">.dropDuplicates</span><span class="n">([</span><span class="s">"event_id"</span><span class="n">])</span>
+<span class="n">)</span>
+
+<span class="c"># ── Write — dynamic partition overwrite ───────────────────</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.sources.partitionOverwriteMode"</span><span class="n">,</span> <span class="s">"dynamic"</span><span class="n">)</span>
+
+<span class="n">(</span>
+    <span class="n">df_silver</span>
+    <span class="n">.write</span>
+    <span class="n">.mode</span><span class="n">(</span><span class="s">"overwrite"</span><span class="n">)</span>
+    <span class="n">.partitionBy</span><span class="n">(</span><span class="s">"year"</span><span class="n">,</span> <span class="s">"month"</span><span class="n">,</span> <span class="s">"day"</span><span class="n">)</span>
+    <span class="n">.parquet</span><span class="n">(</span><span class="n">args</span><span class="n">[</span><span class="s">'TARGET_PATH'</span><span class="n">]</span><span class="n">)</span>
+<span class="n">)</span>
+
+<span class="n">job</span><span class="n">.commit</span><span class="n">()</span></code></pre>
+
+        <div class="callout tip">
+          <strong>Why explicit schema?</strong> Schema inference reads the entire dataset before processing. On large S3 prefixes this adds minutes and significant cost. Always define the schema explicitly in production jobs.
+        </div>
+
+        <h2 id="dpu-optimization">5. DPU Sizing &amp; Cost Optimisation</h2>
+        <p>
+          DPU (Data Processing Unit) is Glue's billing unit — 4 vCPUs + 16 GB RAM, billed per second with a 1-minute minimum. Getting DPU sizing wrong is the fastest way to overspend on Glue.
+        </p>
+
+        <h3>Sizing formula</h3>
+        <p>Start with: <code>(input_size_GB × 4) / worker_memory_GB</code> as a baseline, then profile with Glue job metrics.</p>
+        <ul>
+          <li><strong>Enable job metrics</strong> in the Glue Console — the Memory Profile chart shows heap usage per executor.</li>
+          <li>If max heap stays below 60%, halve the worker count or downgrade worker type.</li>
+          <li>If jobs spill to disk (shuffle write &gt; 0 on small datasets), upgrade to <code>G.2X</code>.</li>
+        </ul>
+
+        <h3>Spark configuration tuning</h3>
+<pre><code><span class="c"># Set in job parameters or GlueContext</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.shuffle.partitions"</span><span class="n">,</span> <span class="s">"200"</span><span class="n">)</span>     <span class="c"># default 200, reduce for &lt;10 GB</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>       <span class="c"># AQE — auto-coalesces partitions</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.coalescePartitions.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>
+<span class="n">spark</span><span class="n">.conf</span><span class="n">.set</span><span class="n">(</span><span class="s">"spark.sql.adaptive.skewJoin.enabled"</span><span class="n">,</span> <span class="s">"true"</span><span class="n">)</span>  <span class="c"># AQE — handles skewed joins</span></code></pre>
+
+        <div class="callout tip">
+          <strong>Adaptive Query Execution (AQE)</strong> is a game changer for skewed datasets. It repartitions automatically at runtime. Enable it on any job doing wide joins over financial or user-event data — we cut p99 latency by ~30% on the Itaú pipeline after enabling it.
+        </div>
+
+        <h2 id="glue-vs-alternatives">6. Glue vs EMR vs Lambda vs Step Functions</h2>
+        <p>This is the most common architecture question I get from teams new to AWS data engineering:</p>
+
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Best When</th>
+              <th>Avoid When</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>AWS Glue (Spark)</strong></td>
+              <td>Batch ETL &gt;1 GB, need managed Spark, Data Catalog integration</td>
+              <td>Sub-minute latency required, complex custom Spark libs</td>
+            </tr>
+            <tr>
+              <td><strong>EMR on EC2/EKS</strong></td>
+              <td>Long-running clusters, custom Spark builds, cost-sensitive at scale (&gt;100 DPUs)</td>
+              <td>Occasional batch jobs — cold start + cluster cost is wasteful</td>
+            </tr>
+            <tr>
+              <td><strong>Lambda</strong></td>
+              <td>Event-driven micro-transforms &lt;100 MB, fan-out file routing</td>
+              <td>Anything with Spark, stateful processing, &gt;15 min runtime</td>
+            </tr>
+            <tr>
+              <td><strong>Step Functions</strong></td>
+              <td>Orchestrating multi-service workflows (Glue + Lambda + SNS)</td>
+              <td>Actual data transformation — it's an orchestrator, not a processor</td>
+            </tr>
+            <tr>
+              <td><strong>Glue (Python Shell)</strong></td>
+              <td>API ingestion, metadata updates, small file aggregation</td>
+              <td>Anything needing distributed compute</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="best-practices">7. Production Best Practices</h2>
+
+        <h3>Job bookmarks</h3>
+        <p>
+          Enable <strong>job bookmarks</strong> (<code>--job-bookmark-option job-bookmark-enable</code>) on incremental loads. Glue tracks which S3 objects have already been processed using a checkpoint stored in the Glue state backend — no need to manage watermarks manually.
+        </p>
+        <div class="callout warning">
+          <strong>Gotcha:</strong> Job bookmarks track S3 objects by <em>path + modification time</em>. If upstream jobs overwrite files with the same path (common in overwrite-mode pipelines), bookmarks silently skip them. Use append-mode writes or disable bookmarks on full-load jobs.
+        </div>
+
+        <h3>Error handling and retries</h3>
+<pre><code><span class="c"># Wrap transformation stages in try/except and write failed records</span>
+<span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+
+<span class="n">df_valid</span>   <span class="n">=</span> <span class="n">df</span><span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"amount"</span><span class="n">)</span> <span class="n">&gt;=</span> <span class="m">0</span><span class="n">)</span>
+<span class="n">df_invalid</span> <span class="n">=</span> <span class="n">df</span><span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"amount"</span><span class="n">)</span> <span class="n">&lt;</span> <span class="m">0</span><span class="n">)</span>
+
+<span class="c"># Ship invalid records to a quarantine prefix — never silently drop</span>
+<span class="n">df_invalid</span><span class="n">.write</span><span class="n">.mode</span><span class="n">(</span><span class="s">"append"</span><span class="n">)</span><span class="n">.parquet</span><span class="n">(</span><span class="s">"s3://my-bucket/quarantine/events/"</span><span class="n">)</span></code></pre>
+
+        <h3>CloudWatch metrics to monitor</h3>
+        <ul>
+          <li><code>glue.driver.aggregate.numFailedTasks</code> — non-zero means data quality issues or OOM.</li>
+          <li><code>glue.driver.aggregate.shuffleLocalBytesRead</code> — high values indicate partition skew.</li>
+          <li><code>glue.driver.jvm.heap.usage</code> — consistently &gt;80% means you need bigger workers.</li>
+          <li><code>glue.ALL.jvm.heap.usage</code> — per-executor view to catch outlier executors.</li>
+        </ul>
+
+        <h3>Security</h3>
+        <ul>
+          <li>Always attach a <strong>Glue security configuration</strong> with S3 SSE-KMS encryption for job bookmarks, logs, and temp data.</li>
+          <li>Use <strong>VPC networking</strong> when reading from RDS or Redshift — never expose JDBC endpoints publicly.</li>
+          <li>Scope IAM roles to specific S3 prefixes, not <code>s3:*/*</code>.</li>
+        </ul>
+
+        <h2 id="conclusion">8. Conclusion</h2>
+        <p>
+          AWS Glue is an excellent default choice for batch ETL in a data lake on AWS when your data exceeds a few hundred MB and you want to avoid managing Spark infrastructure. The key to making it production-grade is: explicit schemas, AQE enabled, correctly sized DPUs, job bookmarks for incremental loads, and quarantine logic for invalid records.
+        </p>
+        <p>
+          Where Glue falls short is ultra-low latency, very custom Spark builds, or extreme cost-sensitivity at scale — at that point EMR Spot clusters or Databricks start to win on economics. But for most batch pipelines in a greenfield AWS environment, Glue + Data Catalog is the fastest path to a maintainable, serverless ETL layer.
+        </p>
+        <p>
+          Questions? Reach me on <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> or check my <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener">Hashnode blog</a> for more data engineering content.
+        </p>
+
+      </div><!-- /.post-body -->
+
+      <!-- Author card -->
+      <aside class="author-card" aria-label="About the author">
+        <div class="author-avatar" aria-hidden="true">DC</div>
+        <div class="author-info">
+          <h3>Daniel Cruz Rodrigues</h3>
+          <p>Senior Data Engineer at NTT DATA (Banco Itaú). Databricks &amp; AWS specialist. 6× AWS certified. Building large-scale Data Lakes processing 20M+ records/day.</p>
+          <div class="author-links">
+            <a href="https://danielportfolio.eddesucesso.tech/">
+              <i class="fa-solid fa-globe" aria-hidden="true"></i> Portfolio
+            </a>
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">
+              <i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn
+            </a>
+            <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i> Hashnode
+            </a>
+            <a href="https://github.com/EddesucessoCloud/" target="_blank" rel="noopener">
+              <i class="fa-brands fa-github" aria-hidden="true"></i> GitHub
+            </a>
+          </div>
+        </div>
+      </aside>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Daniel Cruz Rodrigues · <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a> · <a href="index.html">Blog</a> · <a href="mailto:danielcruz.alu.lmb@gmail.com">Contact</a></p>
+  </footer>
+
+</body>
+</html>
