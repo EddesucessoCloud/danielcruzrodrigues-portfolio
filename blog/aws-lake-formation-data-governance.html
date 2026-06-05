@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AWS Lake Formation: The Data Governance Layer Most Teams Skip | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="AWS Lake Formation in production: column-level security, cross-account data sharing, Lake Formation vs IAM permissions, and why most teams regret skipping it until they need audits." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/aws-lake-formation-data-governance.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="AWS Lake Formation: The Data Governance Layer Most Teams Skip" />
+  <meta property="og:description" content="AWS Lake Formation in production: column-level security, cross-account data sharing, Lake Formation vs IAM permissions, and why most teams regret skipping it until they need audits." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/aws-lake-formation-data-governance.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "AWS Lake Formation: The Data Governance Layer Most Teams Skip",
+    "description": "AWS Lake Formation in production: column-level security, cross-account data sharing, Lake Formation vs IAM permissions, and why most teams regret skipping it until they need audits.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/aws-lake-formation-data-governance.html",
+    "keywords": ["AWS Lake Formation", "data governance", "Glue Catalog", "column-level security", "cross-account data sharing", "data mesh", "data lake", "AWS"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .table-wrap{overflow-x:auto;margin:1.5rem 0;}
+    table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+    th{background:rgba(255,255,255,0.04);color:var(--text-primary);font-weight:600;text-align:left;padding:0.6rem 0.875rem;border-bottom:1px solid var(--border);}
+    td{padding:0.55rem 0.875rem;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top;}tr:last-child td{border-bottom:none;}td strong{color:var(--text-primary);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        <span class="tag">Lake Formation</span>
+        <span class="tag tag-green">Data Governance</span>
+        <span class="tag tag-amber">AWS</span>
+      </div>
+
+      <h1>AWS Lake Formation: The Data Governance Layer Most Teams Skip</h1>
+
+      <h2>The compliance audit that exposed 47 over-privileged roles</h2>
+      <p>An audit of a production data lake found that 47 IAM roles had <code>s3:GetObject</code> on the entire data lake bucket — including a role used by a vendor integration that should only have accessed aggregate reports. Every engineer with a Glue or Athena role could read the raw PII tables. Nobody had designed it this way — it had just accumulated over 18 months of "we'll fix the permissions later." Lake Formation was the fix. It took 3 days to implement what IAM alone cannot provide: table-level and column-level access control without touching S3 bucket policies.</p>
+
+      <h2>What Lake Formation actually controls</h2>
+      <p><strong>AWS Lake Formation</strong> sits on top of the Glue Data Catalog and S3. It adds a permissions model that operates at the database, table, and column level — separate from and additive to IAM. When Lake Formation is enabled, access to Glue Catalog resources requires both IAM permissions (to call Glue/Athena APIs) AND Lake Formation grants. IAM alone is insufficient. This is the "hybrid access mode" that most documentation underexplains.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ Permission model</div>
+        <p>Lake Formation uses a "least privilege intersection" model: a principal needs both IAM permission to call the service API AND a Lake Formation grant on the specific resource. Removing the Lake Formation grant revokes access regardless of what IAM says. This is why Lake Formation is powerful — it is an additional control plane, not a replacement.</p>
+      </div>
+
+      <h3>Enable Lake Formation and register your S3 location</h3>
+      <pre><code class="language-hcl">resource "aws_lakeformation_resource" "datalake_bucket" {
+  arn = "arn:aws:s3:::your-datalake-bucket"
+  # Lake Formation manages access to this S3 path
+  # Glue/Athena will use LF-registered credentials, not role credentials
+}
+
+resource "aws_lakeformation_permissions" "data_engineer_table" {
+  principal   = "arn:aws:iam::123456789012:role/DataEngineerRole"
+  permissions = ["SELECT", "DESCRIBE"]
+
+  table {
+    database_name = "events"
+    name          = "user_events"
+  }
+}
+
+resource "aws_lakeformation_permissions" "analyst_columns" {
+  principal   = "arn:aws:iam::123456789012:role/AnalystRole"
+  permissions = ["SELECT"]
+
+  table_with_columns {
+    database_name = "events"
+    name          = "user_events"
+    column_names  = ["event_type", "event_ts", "session_id"]
+    # user_id, email, phone are excluded — analyst cannot query PII columns
+  }
+}</code></pre>
+
+      <h2>Column-level security: the feature IAM cannot replicate</h2>
+      <p>IAM bucket policies operate on S3 object paths — you cannot restrict access to a column within a Parquet file via IAM. Lake Formation's <strong>column-level security</strong> intercepts queries at the Glue Catalog level: when Athena or Redshift Spectrum reads a table, Lake Formation verifies the column-level grants and rewrites the query plan to exclude unauthorized columns. The calling principal never receives the restricted data — it is not returned from S3 reads at all.</p>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>Column-level security applies to Athena, Redshift Spectrum, and Glue ETL jobs when using the Glue Catalog. It does NOT apply to direct S3 access via Spark or EMR if the job bypasses the Glue Catalog. A data engineer with <code>s3:GetObject</code> IAM permissions can still read all columns from the Parquet file directly. Lake Formation only controls catalog-mediated access.</p>
+      </div>
+
+      <h2>Cross-account data sharing with Lake Formation</h2>
+      <p>Lake Formation cross-account grants let you share Glue Catalog tables with principals in different AWS accounts without copying data. The consumer account queries the producer's S3 data directly, with Lake Formation enforcing the column-level grants across the account boundary. This is the technical foundation of a data mesh on AWS — each domain account owns its data, Lake Formation controls who can read what.</p>
+
+      <pre><code class="language-python">import boto3
+
+lf = boto3.client('lakeformation', region_name='us-east-1')
+
+# Producer account: grant cross-account access
+lf.grant_permissions(
+    Principal={'DataLakePrincipalIdentifier': '987654321098'},  # consumer account ID
+    Resource={
+        'TableWithColumns': {
+            'CatalogId': '123456789012',  # producer catalog
+            'DatabaseName': 'events',
+            'Name': 'user_events',
+            'ColumnNames': ['event_type', 'event_ts', 'region']
+            # PII columns not included
+        }
+    },
+    Permissions=['SELECT', 'DESCRIBE'],
+    PermissionsWithGrantOption=[]  # consumer cannot re-grant
+)
+
+# Consumer account: accept the RAM resource share first, then query
+# The consumer uses Athena pointed at the federated catalog
+# No data copying — queries go to producer's S3 directly</code></pre>
+
+      <h2>Architecture: Lake Formation governance across accounts</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// Lake Formation data governance — multi-account data mesh</p>
+        <img src="images/aws-lake-formation-data-governance-architecture.png"
+             alt="AWS Lake Formation multi-account data governance architecture with column-level security and cross-account sharing"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+      </div>
+
+      <h2>Lake Formation vs Glue Catalog IAM: the migration trap</h2>
+      <p>Before Lake Formation, Glue Catalog permissions were managed via IAM and S3 bucket policies. Enabling Lake Formation in "hybrid mode" — where both IAM and LF permissions control access — seems safe but creates a period where you have two permission systems in conflict. The migration approach that works: enable Lake Formation with <strong>IAM + Lake Formation access mode</strong> (hybrid), audit all existing IAM roles using the LF access control verifier, then revoke over-permissive S3 bucket policies once LF grants are confirmed.</p>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">✓ Migration sequence</div>
+        <p>1. Enable Lake Formation with hybrid mode (IAM + LF). 2. Register S3 locations. 3. Grant table-level permissions to existing roles. 4. Verify access with each principal. 5. Switch to LF-only mode. 6. Tighten S3 bucket policy to only allow Lake Formation service role. Do NOT skip step 4 — switching to LF-only mode with missing grants immediately breaks production jobs.</p>
+      </div>
+
+      <h2>Data quality tags and automated governance</h2>
+      <p>Lake Formation's <strong>LF-Tags</strong> let you attach arbitrary metadata to Catalog resources and grant permissions based on tag combinations rather than explicit table names. A tag <code>sensitivity=pii</code> applied to a table automatically restricts access for any role that lacks the matching LF-Tag permission. This scales governance: adding a new PII table automatically inherits the right access controls without a manual grant for each team.</p>
+
+      <pre><code class="language-python"># Create LF-Tag and apply to tables
+lf.create_lf_tag(TagKey='sensitivity', TagValues=['pii', 'internal', 'public'])
+
+lf.add_lf_tags_to_resource(
+    Resource={'Table': {'DatabaseName': 'events', 'Name': 'user_events'}},
+    LFTags=[{'TagKey': 'sensitivity', 'TagValues': ['pii']}]
+)
+
+# Grant access based on tag: any role with this grant can access ALL tables tagged sensitivity=public
+lf.grant_permissions(
+    Principal={'DataLakePrincipalIdentifier': 'arn:aws:iam::123456789012:role/PublicAnalystRole'},
+    Resource={'LFTagPolicy': {
+        'ResourceType': 'TABLE',
+        'Expression': [{'TagKey': 'sensitivity', 'TagValues': ['public']}]
+    }},
+    Permissions=['SELECT', 'DESCRIBE']
+)</code></pre>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

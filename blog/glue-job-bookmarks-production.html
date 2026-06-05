@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glue Job Bookmarks: Why They Break and How to Fix Them | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="AWS Glue job bookmarks in production: why they silently miss records, how bookmark state is tracked, and the patterns that actually work for incremental S3 and JDBC ingestion at scale." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/glue-job-bookmarks-production.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Glue Job Bookmarks: Why They Break and How to Fix Them" />
+  <meta property="og:description" content="AWS Glue job bookmarks in production: why they silently miss records, how bookmark state is tracked, and the patterns that actually work for incremental S3 and JDBC ingestion at scale." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/glue-job-bookmarks-production.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Glue Job Bookmarks: Why They Break and How to Fix Them",
+    "description": "AWS Glue job bookmarks in production: why they silently miss records, how bookmark state is tracked, and the patterns that actually work for incremental S3 and JDBC ingestion at scale.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/glue-job-bookmarks-production.html",
+    "keywords": ["AWS Glue", "Glue job bookmarks", "incremental ETL", "Glue ETL", "data engineering", "AWS", "incremental ingestion", "bookmark state"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .table-wrap{overflow-x:auto;margin:1.5rem 0;}
+    table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+    th{background:rgba(255,255,255,0.04);color:var(--text-primary);font-weight:600;text-align:left;padding:0.6rem 0.875rem;border-bottom:1px solid var(--border);}
+    td{padding:0.55rem 0.875rem;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top;}tr:last-child td{border-bottom:none;}td strong{color:var(--text-primary);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 11 min read</span>
+        <span class="tag">AWS Glue</span>
+        <span class="tag tag-green">ETL</span>
+        <span class="tag tag-amber">Data Engineering</span>
+      </div>
+
+      <h1>Glue Job Bookmarks: Why They Break and How to Fix Them</h1>
+
+      <h2>The Glue job that silently dropped 2 million records for 9 days</h2>
+      <p>A daily Glue ETL job had been processing S3 files incrementally for three months using job bookmarks. On day 94, a partner system began writing files with a modified timestamp format in the key name. Bookmarks track S3 object ETags and modification timestamps — the new key format caused Glue to treat those files as already-processed. For 9 days, 220,000 records/day went unprocessed. The bookmark state showed no errors. The job completed successfully every morning. The missing data was only discovered when a downstream report showed an unexpected trend break.</p>
+
+      <h2>How Glue bookmarks actually track state</h2>
+      <p><strong>AWS Glue job bookmarks</strong> track which data has already been processed so incremental runs only process new data. For <strong>S3 sources</strong>, bookmarks track by S3 object modification timestamp and ETag — not by file name, not by partition path. For <strong>JDBC sources</strong>, bookmarks track by a numeric or date column you specify (<code>jobBookmarkKeys</code>). These are fundamentally different tracking mechanisms with completely different failure modes.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ Bookmark state storage</div>
+        <p>Bookmark state is stored in an S3 bucket managed by AWS Glue (not in your account). It is tied to the job name and run ID. Renaming a Glue job resets the bookmark entirely — the new job has no history. This has caused multiple production incidents where job renames during "minor refactoring" led to full-table reprocessing.</p>
+      </div>
+
+      <h3>S3 bookmark: how it selects files</h3>
+      <pre><code class="language-python">import sys
+from awsglue.utils import getResolvedOptions
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+job = glueContext.create_job_bookmark_operator(args['JOB_NAME'])
+
+# Bookmark-enabled S3 read — Glue automatically filters to new/modified files
+datasource = glueContext.create_dynamic_frame.from_options(
+    connection_type="s3",
+    connection_options={
+        "paths": ["s3://your-bucket/events/"],
+        "recurse": True,
+        # Bookmark uses: file modification time + ETag
+        # Does NOT filter by partition name or key prefix pattern
+    },
+    format="json",
+    transformation_ctx="datasource"  # REQUIRED: this key ties state to this step
+)
+print(f"Bookmark returned {datasource.count()} records this run")</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>The <code>transformation_ctx</code> parameter is mandatory for bookmark tracking. Without it, Glue reads all files every run. With a wrong ctx value (e.g., you renamed the step), the bookmark is reset for that step. Treat <code>transformation_ctx</code> values as immutable identifiers — never rename them after a job goes to production.</p>
+      </div>
+
+      <h2>The 5 ways bookmarks silently fail</h2>
+
+      <h3>1. Late-arriving files</h3>
+      <p>S3 files written after the bookmark snapshot point are caught by the next run. But files that have an old modification timestamp (backfills, replays, vendor-delayed deliveries) will be missed entirely — their timestamp predates the bookmark cursor. Bookmarks have no mechanism for late arrivals. The fix: for sources with potential late arrivals, implement a custom watermark using a DynamoDB table storing the last processed file key, not the bookmark mechanism.</p>
+
+      <h3>2. File re-writes with the same key</h3>
+      <p>If a source system overwrites an S3 file with the same key, the ETag changes but the key stays the same. The bookmark tracks ETags, so the new file is processed. But if the overwrite happens within the same Glue run's bookmark window, it may be missed. This affected us when a vendor corrected a daily summary file — the correction landed while the bookmark cursor was in a boundary position.</p>
+
+      <h3>3. JDBC bookmark column gaps</h3>
+      <pre><code class="language-python"># JDBC bookmark configuration — requires explicit bookmark key
+datasource = glueContext.create_dynamic_frame.from_catalog(
+    database="production",
+    table_name="orders",
+    additional_options={
+        "jobBookmarkKeys": ["updated_at"],  # must be monotonically increasing
+        "jobBookmarkKeysSortOrder": "asc",
+        # Gotcha: if updated_at is nullable, NULL rows are ALWAYS reprocessed
+        # Gotcha: if clock skew exists between app and DB, rows can be missed
+    },
+    transformation_ctx="orders_source"
+)</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>JDBC bookmark keys must be monotonically increasing. If your source table uses an <code>updated_at</code> timestamp and the application server has clock skew, rows written with a slightly past timestamp will be missed. The bookmark advances past them before they arrive. Always add a <strong>1-2 hour overlap buffer</strong> in your JDBC query and deduplicate downstream.</p>
+      </div>
+
+      <h3>4. Bookmark state after failed runs</h3>
+      <p>When a Glue job fails, the bookmark state is NOT advanced — the next run reprocesses the same files. This is intentional and usually correct. The problem is when a job partially succeeds: Glue commits the bookmark when <code>job.commit()</code> is called at the end. If your job writes 9 of 10 partitions and then fails, the bookmark was never committed — all 10 partitions are reprocessed on the next run. You need idempotent writes to handle this safely.</p>
+
+      <h3>5. Resetting bookmarks accidentally</h3>
+      <p>The AWS CLI command to reset a bookmark is: <code>aws glue reset-job-bookmark --job-name my-job</code>. This has been run accidentally by engineers debugging jobs in the wrong environment. After a reset, the next run processes all data from the beginning — potentially petabytes of S3 files. Protect production bookmarks with IAM denying <code>glue:ResetJobBookmark</code> for non-admin roles.</p>
+
+      <h2>Architecture: incremental ingestion with Glue bookmarks</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// Glue incremental ETL — bookmark state management</p>
+        <img src="images/glue-job-bookmarks-production-architecture.png"
+             alt="AWS Glue job bookmarks architecture for incremental S3 ingestion with state management"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+      </div>
+
+      <h2>The alternative: custom watermark with DynamoDB</h2>
+      <p>For pipelines where Glue bookmarks are too unreliable, implement a custom watermark. Store the last-processed S3 key or timestamp in DynamoDB. Query new files explicitly using S3 LIST with prefix filtering. Commit the new watermark after successful write. This costs 3 DynamoDB operations per run ($0.00000025 each) and gives you complete control over the incremental logic.</p>
+
+      <pre><code class="language-python">import boto3
+from datetime import datetime, timezone
+
+ddb = boto3.resource('dynamodb')
+table = ddb.Table('glue-job-watermarks')
+
+def get_watermark(job_name: str) -> str:
+    response = table.get_item(Key={'job_name': job_name})
+    return response.get('Item', {}).get('last_processed_ts', '1970-01-01T00:00:00Z')
+
+def update_watermark(job_name: str, timestamp: str):
+    table.put_item(Item={
+        'job_name': job_name,
+        'last_processed_ts': timestamp,
+        'updated_at': datetime.now(timezone.utc).isoformat()
+    })
+
+# In your Glue job:
+watermark = get_watermark('events-ingestion')
+s3 = boto3.client('s3')
+
+# List only files newer than watermark
+new_files = [
+    obj['Key'] for obj in
+    s3.list_objects_v2(Bucket='events-bucket', Prefix='raw/')['Contents']
+    if obj['LastModified'].isoformat() > watermark
+]
+
+# Process new_files with Spark...
+# After successful write:
+update_watermark('events-ingestion', datetime.now(timezone.utc).isoformat())</code></pre>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

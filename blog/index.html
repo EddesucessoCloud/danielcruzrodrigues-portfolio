@@ -247,6 +247,126 @@
     <section class="posts-section">
       <h2>All Posts</h2>
 
+      <a href="emr-spot-interruption-handling.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Amazon EMR</span>
+          <span class="post-tag green">Spot Instances</span>
+          <span class="post-tag amber">Cost Optimization</span>
+        </div>
+        <h3>EMR Spot Instance Interruption Handling at Scale</h3>
+        <p>How to handle EC2 Spot interruptions in Amazon EMR production workloads. Covers YARN checkpoint, External Shuffle Service, instance fleet strategies, and the 2-minute interruption notice window automation with EventBridge.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="data-quality-great-expectations-glue.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Great Expectations</span>
+          <span class="post-tag green">Data Quality</span>
+          <span class="post-tag amber">AWS Glue</span>
+        </div>
+        <h3>Data Quality with Great Expectations on AWS Glue: A Production Setup</h3>
+        <p>How to run Great Expectations data quality checks inside AWS Glue ETL jobs. Expectation suites, S3 Data Docs publishing, checkpoint configuration, and integrating DQ failures into pipeline alerting via SNS.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="dbt-on-aws-execution-engine.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">dbt</span>
+          <span class="post-tag green">Data Transformation</span>
+          <span class="post-tag amber">AWS</span>
+        </div>
+        <h3>dbt on AWS: Choosing the Right Execution Engine (Glue vs Redshift vs Athena)</h3>
+        <p>How to pick the right AWS execution engine for dbt. Real performance benchmarks — 12 min on Redshift vs 4 hours on Glue for the same model — plus cost comparison and when each engine fails in production.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="glue-job-bookmarks-production.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">AWS Glue</span>
+          <span class="post-tag green">ETL</span>
+          <span class="post-tag amber">Data Engineering</span>
+        </div>
+        <h3>Glue Job Bookmarks: Why They Break and How to Fix Them</h3>
+        <p>AWS Glue job bookmarks in production: why they silently miss records, how bookmark state is tracked by ETag and timestamp, and the DynamoDB custom watermark pattern that actually works for incremental ingestion at scale.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="kafka-vs-kinesis-decision-framework.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Apache Kafka</span>
+          <span class="post-tag green">Kinesis</span>
+          <span class="post-tag amber">Streaming</span>
+        </div>
+        <h3>Kafka vs Kinesis: The Decision Framework Nobody Publishes</h3>
+        <p>A real cost and capability comparison of Apache Kafka on MSK vs Amazon Kinesis Data Streams — including the consumer count break-even calculation, retention pricing, and the operational overhead trade-off most comparisons skip.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="aws-lake-formation-data-governance.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Lake Formation</span>
+          <span class="post-tag green">Data Governance</span>
+          <span class="post-tag amber">AWS</span>
+        </div>
+        <h3>AWS Lake Formation: The Data Governance Layer Most Teams Skip</h3>
+        <p>Column-level security, cross-account data sharing, LF-Tags for automated governance, and the migration trap nobody documents. Why 47 over-privileged IAM roles is a compliance audit away from a production incident.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="step-functions-vs-mwaa-orchestration.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Step Functions</span>
+          <span class="post-tag green">MWAA</span>
+          <span class="post-tag amber">Orchestration</span>
+        </div>
+        <h3>Step Functions vs MWAA vs EventBridge: Orchestration Cost Comparison</h3>
+        <p>Real cost comparison of AWS orchestration tools for data pipelines. Why MWAA costs $1,200/month doing nothing for 12 daily jobs, and when Step Functions at $1.50/month is the right answer.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="apache-iceberg-s3-production.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Apache Iceberg</span>
+          <span class="post-tag green">Data Lakehouse</span>
+          <span class="post-tag amber">AWS S3</span>
+        </div>
+        <h3>Apache Iceberg on S3: Partition Evolution, Time Travel, and Hidden S3 Costs</h3>
+        <p>Iceberg's partition evolution that took 18 months of wrong partitioning to fix in one DDL statement. Time travel patterns, compaction requirements, and the S3 API call costs in metadata reads nobody warns you about.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="redshift-serverless-vs-provisioned.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">Redshift</span>
+          <span class="post-tag green">Cost Optimization</span>
+          <span class="post-tag amber">AWS</span>
+        </div>
+        <h3>Redshift Serverless vs Provisioned: The Real Cost Model at Scale</h3>
+        <p>The team that migrated to Redshift Serverless and saw their bill go from $5,400 to $14,000/month. How duty cycle and concurrency determine which deployment model wins — with the actual formulas and break-even calculations.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
+      <a href="aws-cdc-dms-rds-redshift.html" class="post-card">
+        <div class="post-meta">
+          <span class="post-date">June 2026</span>
+          <span class="post-tag">AWS DMS</span>
+          <span class="post-tag green">CDC</span>
+          <span class="post-tag amber">Redshift</span>
+        </div>
+        <h3>CDC with AWS DMS: RDS to Redshift Real-Time Replication</h3>
+        <p>How to build a production CDC pipeline from RDS PostgreSQL to Redshift using AWS DMS. LOB column handling, schema drift, replication lag metrics that matter, and why direct DMS → Redshift fails at 10,000 changes/second.</p>
+        <span class="post-read-more">Read post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+
       <a href="aws-kinesis-real-time-streaming.html" class="post-card">
         <div class="post-meta">
           <span class="post-date">June 2026</span>
