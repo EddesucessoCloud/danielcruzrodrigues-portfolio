@@ -32,3 +32,8 @@ import {
   to = aws_cloudfront_origin_access_control.oac
   id = "E6WLMVVOZXIPH"
 }
+
+import {
+  to = aws_lambda_permission.api_gw
+  id = "terraform_lambda_func/AllowExecutionFromAPIGateway"
+}
