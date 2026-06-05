@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Medallion architecture on AWS: how to design a production Bronze-Silver-Gold data lake using S3, AWS Glue, EMR, Delta Lake, and Athena — with schema enforcement, data quality, and governance patterns." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <title>Medallion Architecture on AWS: Building a Production Bronze-Silver-Gold Data Lake | Daniel Cruz Rodrigues</title>
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/medallion-architecture-aws.html" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Medallion Architecture on AWS: Building a Production Bronze-Silver-Gold Data Lake" />
+  <meta property="og:description" content="How to design a production medallion data lake on AWS — S3 layout, Glue Data Catalog, Delta Lake, schema enforcement, data quality gates, and governance with Lake Formation." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/medallion-architecture-aws.html" />
+  <meta property="og:image" content="https://danielportfolio.eddesucesso.tech/images/cloud-resume-challenge-cover.webp" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Medallion Architecture on AWS: Building a Production Bronze-Silver-Gold Data Lake",
+    "description": "How to design a production medallion data lake on AWS — S3 layout, Glue Data Catalog, Delta Lake, schema enforcement, data quality gates, and governance with Lake Formation.",
+    "author": {
+      "@type": "Person",
+      "name": "Daniel Cruz Rodrigues",
+      "url": "https://danielportfolio.eddesucesso.tech/"
+    },
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "datePublished": "2026-06-05",
+    "dateModified": "2026-06-05",
+    "url": "https://danielportfolio.eddesucesso.tech/blog/medallion-architecture-aws.html",
+    "keywords": ["medallion architecture", "data lake", "bronze silver gold", "lakehouse", "AWS data lake", "Delta Lake", "data engineering", "AWS Glue", "S3 data lake"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080e1c; --surface: rgba(255,255,255,0.04); --surface-hover: rgba(255,255,255,0.07);
+      --text-primary: #e8edf3; --text-dim: #b8c7d4; --text-muted: #7a8fa3;
+      --accent-cyan: #5bbad5; --accent-cyan-dim: rgba(91,186,213,0.12); --accent-cyan-border: rgba(91,186,213,0.25);
+      --accent-green: #10d5a0; --accent-green-dim: rgba(16,213,160,0.10); --accent-green-border: rgba(16,213,160,0.30);
+      --accent-amber: #f59e0b; --border: rgba(91,186,213,0.16);
+      --font-sans: 'Inter', system-ui, sans-serif; --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px; --radius-md: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text-primary); font-family: var(--font-sans); font-size: 1rem; line-height: 1.7; min-height: 100vh; }
+    a { color: var(--accent-cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .site-header { border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(8,14,28,0.92); backdrop-filter: blur(12px); z-index: 40; }
+    .site-header .logo { font-family: var(--font-mono); font-size: 0.875rem; color: var(--accent-cyan); font-weight: 800; letter-spacing: 0.05em; }
+    .site-header nav a { color: var(--text-dim); font-size: 0.875rem; margin-left: 1.5rem; transition: color 150ms; }
+    .site-header nav a:hover { color: var(--accent-cyan); text-decoration: none; }
+    .article-wrap { max-width: 52rem; margin: 0 auto; padding: 3rem 2rem 6rem; }
+    .post-header { margin-bottom: 2.5rem; }
+    .post-breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .post-breadcrumb a { color: var(--text-muted); }
+    .post-breadcrumb a:hover { color: var(--accent-cyan); text-decoration: none; }
+    .post-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .tag { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.2rem 0.65rem; border-radius: 999px; background: var(--accent-cyan-dim); color: var(--accent-cyan); border: 1px solid var(--accent-cyan-border); }
+    .tag.green { background: var(--accent-green-dim); color: var(--accent-green); border-color: var(--accent-green-border); }
+    .tag.amber { background: rgba(245,158,11,0.12); color: var(--accent-amber); border-color: rgba(245,158,11,0.30); }
+    .post-header h1 { font-size: clamp(1.6rem, 4vw, 2.25rem); font-weight: 700; line-height: 1.2; color: var(--text-primary); margin-bottom: 1rem; }
+    .post-meta { display: flex; align-items: center; gap: 1.5rem; color: var(--text-muted); font-size: 0.8125rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .post-meta .author { display: flex; align-items: center; gap: 0.4rem; color: var(--text-dim); }
+    .toc { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; }
+    .toc h2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); margin-bottom: 0.75rem; }
+    .toc ol { list-style: decimal; padding-left: 1.25rem; }
+    .toc li { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+    .toc li a { color: var(--text-dim); }
+    .toc li a:hover { color: var(--accent-cyan); }
+    .post-body h2 { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 2.5rem 0 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+    .post-body h3 { font-size: 1.1rem; font-weight: 600; color: var(--accent-cyan); margin: 1.75rem 0 0.5rem; }
+    .post-body p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.9875rem; line-height: 1.75; }
+    .post-body ul, .post-body ol { color: var(--text-dim); padding-left: 1.5rem; margin-bottom: 1rem; font-size: 0.9875rem; }
+    .post-body li { margin-bottom: 0.4rem; line-height: 1.65; }
+    .post-body strong { color: var(--text-primary); font-weight: 600; }
+    .post-body code { font-family: var(--font-mono); font-size: 0.82em; background: var(--accent-cyan-dim); color: var(--accent-cyan); padding: 0.1em 0.4em; border-radius: 4px; border: 1px solid var(--accent-cyan-border); }
+    .post-body pre { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-left: 3px solid var(--accent-green); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; overflow-x: auto; margin: 1.25rem 0 1.75rem; font-family: var(--font-mono); font-size: 0.825rem; line-height: 1.65; color: var(--text-dim); }
+    .post-body pre code { background: none; border: none; padding: 0; font-size: inherit; color: inherit; }
+    .post-body pre .c { color: var(--text-muted); } .post-body pre .k { color: var(--accent-cyan); } .post-body pre .s { color: var(--accent-green); } .post-body pre .n { color: var(--text-primary); } .post-body pre .m { color: var(--accent-amber); }
+    .callout { border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 0.9375rem; line-height: 1.65; }
+    .callout.tip { background: var(--accent-green-dim); border-left: 3px solid var(--accent-green); color: var(--text-dim); }
+    .callout.warning { background: rgba(245,158,11,0.08); border-left: 3px solid var(--accent-amber); color: var(--text-dim); }
+    .callout.info { background: var(--accent-cyan-dim); border-left: 3px solid var(--accent-cyan); color: var(--text-dim); }
+    .callout strong { color: var(--text-primary); }
+    .comparison-table { width: 100%; border-collapse: collapse; margin: 1.25rem 0 1.75rem; font-size: 0.875rem; }
+    .comparison-table th { background: var(--surface); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--accent-cyan-border); }
+    .comparison-table td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-dim); vertical-align: top; }
+    .comparison-table tr:last-child td { border-bottom: none; }
+    .comparison-table tr:hover td { background: var(--surface); }
+    .comparison-table td strong { color: var(--text-primary); }
+
+    /* Architecture diagram */
+    .arch-diagram { background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.75rem; margin: 1.5rem 0 2rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); overflow-x: auto; line-height: 1.8; }
+    .arch-diagram .layer-bronze { color: #cd7f32; }
+    .arch-diagram .layer-silver { color: #a8b8c8; }
+    .arch-diagram .layer-gold   { color: var(--accent-amber); }
+    .arch-diagram .arrow        { color: var(--text-muted); }
+
+    .author-card { display: flex; gap: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-top: 3rem; align-items: flex-start; }
+    .author-card .author-info h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+    .author-card .author-info p { font-size: 0.875rem; color: var(--text-dim); margin-bottom: 0.75rem; }
+    .author-card .author-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .author-card .author-links a { font-size: 0.8125rem; display: flex; align-items: center; gap: 0.35rem; }
+    .author-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-cyan-dim); border: 2px solid var(--accent-cyan-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--font-mono); font-weight: 800; font-size: 1.1rem; color: var(--accent-cyan); }
+    .site-footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+    @media (max-width: 640px) { .article-wrap { padding: 2rem 1.25rem 4rem; } .site-header { padding: 1rem 1.25rem; } .author-card { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All Posts</a>
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <header class="post-header">
+        <div class="post-breadcrumb">
+          <a href="https://danielportfolio.eddesucesso.tech/">Home</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <a href="index.html">Blog</a>
+          <i class="fa-solid fa-chevron-right" style="font-size:0.6rem"></i>
+          <span>Data Architecture</span>
+        </div>
+
+        <div class="post-tags">
+          <span class="tag">Data Lake</span>
+          <span class="tag green">Medallion</span>
+          <span class="tag green">Delta Lake</span>
+          <span class="tag amber">Architecture</span>
+        </div>
+
+        <h1>Medallion Architecture on AWS: Building a Production Bronze-Silver-Gold Data Lake</h1>
+
+        <div class="post-meta">
+          <span class="author"><i class="fa-solid fa-user-circle" aria-hidden="true"></i> Daniel Cruz Rodrigues</span>
+          <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 2026</span>
+          <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Table of contents">
+        <h2>// Contents</h2>
+        <ol>
+          <li><a href="#what-is-medallion">What is the Medallion Architecture?</a></li>
+          <li><a href="#aws-stack">The AWS Stack for Each Layer</a></li>
+          <li><a href="#s3-layout">S3 Bucket Layout &amp; Naming Conventions</a></li>
+          <li><a href="#bronze-layer">Bronze Layer: Raw Ingestion</a></li>
+          <li><a href="#silver-layer">Silver Layer: Cleansed &amp; Conformed</a></li>
+          <li><a href="#gold-layer">Gold Layer: Business Aggregates</a></li>
+          <li><a href="#data-quality">Data Quality Gates</a></li>
+          <li><a href="#governance">Governance with Lake Formation</a></li>
+          <li><a href="#orchestration">Orchestration with Step Functions &amp; EventBridge</a></li>
+          <li><a href="#pitfalls">Common Pitfalls &amp; How to Avoid Them</a></li>
+        </ol>
+      </nav>
+
+      <div class="post-body">
+
+        <h2 id="what-is-medallion">1. What is the Medallion Architecture?</h2>
+        <p>
+          The medallion architecture (also called the <em>multi-hop</em> or <em>lakehouse</em> architecture) organises a data lake into three progressively refined layers — <strong>Bronze</strong>, <strong>Silver</strong>, and <strong>Gold</strong>. Each layer has a clear contract: what data it contains, what quality it guarantees, and who consumes it.
+        </p>
+        <p>
+          Originally popularised by Databricks for Delta Lake on Azure, it maps equally well to an AWS stack: S3 for storage, Delta Lake or Apache Iceberg for table format, AWS Glue or EMR for compute, and the Glue Data Catalog as the central metastore. I implemented this architecture at NTT DATA for the Banco Itaú data platform, processing 20M+ financial events daily through three layers before delivery to Redshift and downstream BI tools.
+        </p>
+
+        <div class="arch-diagram" role="img" aria-label="Medallion architecture data flow">
+          <span class="layer-bronze">┌─────────────────────────────────────────────────────────┐</span><br/>
+          <span class="layer-bronze">│  BRONZE  ·  Raw, immutable, append-only                 │</span><br/>
+          <span class="layer-bronze">│  Sources: Kinesis, S3 uploads, JDBC, APIs               │</span><br/>
+          <span class="layer-bronze">│  Format:  JSON / CSV / Avro as-is from source            │</span><br/>
+          <span class="layer-bronze">│  Latency: minutes (batch) or seconds (streaming)         │</span><br/>
+          <span class="layer-bronze">└──────────────────────────┬──────────────────────────────┘</span><br/>
+          <span class="arrow">                           │  Glue / EMR Spark job</span><br/>
+          <span class="layer-silver">                           ▼</span><br/>
+          <span class="layer-silver">┌─────────────────────────────────────────────────────────┐</span><br/>
+          <span class="layer-silver">│  SILVER  ·  Cleansed, schema-enforced, deduplicated      │</span><br/>
+          <span class="layer-silver">│  Consumers: Data Science, exploratory SQL (Athena)       │</span><br/>
+          <span class="layer-silver">│  Format:  Parquet / Delta Lake, partitioned by date      │</span><br/>
+          <span class="layer-silver">│  Latency: hours (batch SLA)                              │</span><br/>
+          <span class="layer-silver">└──────────────────────────┬──────────────────────────────┘</span><br/>
+          <span class="arrow">                           │  Glue / EMR aggregation job</span><br/>
+          <span class="layer-gold">                           ▼</span><br/>
+          <span class="layer-gold">┌─────────────────────────────────────────────────────────┐</span><br/>
+          <span class="layer-gold">│  GOLD    ·  Business aggregates, serving layer           │</span><br/>
+          <span class="layer-gold">│  Consumers: BI dashboards, Redshift, ML features         │</span><br/>
+          <span class="layer-gold">│  Format:  Delta Lake / Iceberg, denormalised wide tables │</span><br/>
+          <span class="layer-gold">│  Latency: daily (business SLA)                           │</span><br/>
+          <span class="layer-gold">└─────────────────────────────────────────────────────────┘</span>
+        </div>
+
+        <h2 id="aws-stack">2. The AWS Stack for Each Layer</h2>
+
+        <table class="comparison-table">
+          <thead>
+            <tr><th>Layer</th><th>Compute</th><th>Storage</th><th>Catalog</th><th>Query</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Bronze</strong></td>
+              <td>Kinesis Firehose, Lambda, Glue (Python Shell)</td>
+              <td>S3 (Standard-IA after 30 days)</td>
+              <td>Glue Catalog (raw tables)</td>
+              <td>Athena (debugging only)</td>
+            </tr>
+            <tr>
+              <td><strong>Silver</strong></td>
+              <td>AWS Glue Spark, EMR on EC2</td>
+              <td>S3 + Delta Lake</td>
+              <td>Glue Catalog (conformed tables)</td>
+              <td>Athena, Redshift Spectrum</td>
+            </tr>
+            <tr>
+              <td><strong>Gold</strong></td>
+              <td>AWS Glue Spark, EMR</td>
+              <td>S3 + Delta Lake / Iceberg</td>
+              <td>Glue Catalog (business tables)</td>
+              <td>Redshift, QuickSight, ML pipelines</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="s3-layout">3. S3 Bucket Layout &amp; Naming Conventions</h2>
+        <p>
+          A consistent S3 layout is the foundation of the entire architecture. The prefixes dictate IAM policy boundaries, lifecycle rules, and partition pruning efficiency. Here is the structure I use in production:
+        </p>
+
+<pre><code><span class="c"># Recommended S3 structure for a medallion data lake</span>
+<span class="n">s3://&lt;org&gt;-datalake-&lt;env&gt;/</span>
+<span class="c">
+# ── Bronze (raw, immutable) ───────────────────────────────</span>
+<span class="n">  bronze/</span>
+<span class="n">    &lt;source-system&gt;/</span>
+<span class="n">      &lt;entity&gt;/</span>
+<span class="n">        year=YYYY/month=MM/day=DD/hour=HH/</span>
+<span class="n">          &lt;uuid&gt;.json.gz</span>
+<span class="c">
+# ── Silver (cleansed, schema-enforced) ───────────────────</span>
+<span class="n">  silver/</span>
+<span class="n">    &lt;domain&gt;/</span>
+<span class="n">      &lt;entity&gt;/</span>
+<span class="n">        date=YYYY-MM-DD/</span>
+<span class="n">          part-00000-&lt;uuid&gt;.parquet</span>
+<span class="c">
+# ── Gold (business aggregates) ───────────────────────────</span>
+<span class="n">  gold/</span>
+<span class="n">    &lt;domain&gt;/</span>
+<span class="n">      &lt;aggregate_name&gt;/</span>
+<span class="n">        date=YYYY-MM-DD/</span>
+<span class="n">          part-00000-&lt;uuid&gt;.parquet</span>
+<span class="c">
+# ── System prefixes ──────────────────────────────────────</span>
+<span class="n">  _delta_log/         </span><span class="c"># Delta Lake transaction log (per table root)</span>
+<span class="n">  _spark_metadata/    </span><span class="c"># Spark streaming checkpoint</span>
+<span class="n">  _tmp/               </span><span class="c"># Staging, cleaned up post-job</span>
+<span class="n">  _quarantine/        </span><span class="c"># Failed quality checks, never deleted</span></code></pre>
+
+        <div class="callout tip">
+          <strong>Single bucket vs multi-bucket:</strong> Use a single bucket per environment (dev/staging/prod) with prefix-based IAM and Lake Formation policies. Multi-bucket setups (one per layer) feel cleaner but create cross-bucket replication complexity and inflate S3 request costs on LIST operations. The prefix approach gives the same isolation with simpler IAM.
+        </div>
+
+        <h2 id="bronze-layer">4. Bronze Layer: Raw Ingestion</h2>
+        <p>
+          The bronze layer has one job: land data from source systems as fast as possible, exactly as it arrived, without any transformation. This is your <strong>audit log</strong> — every schema change, every corrupt record, every API quirk is preserved here forever.
+        </p>
+
+        <h3>Ingestion pattern: Kinesis → Firehose → S3</h3>
+
+<pre><code><span class="c"># Kinesis Firehose configuration (Terraform excerpt)
+# Delivers raw JSON events to Bronze with Hive-compatible partitioning</span>
+<span class="n">resource</span> <span class="s">"aws_kinesis_firehose_delivery_stream"</span> <span class="s">"bronze_events"</span> <span class="n">{</span>
+  <span class="n">name</span>        <span class="n">=</span> <span class="s">"bronze-events-stream"</span>
+  <span class="n">destination</span> <span class="n">=</span> <span class="s">"extended_s3"</span>
+
+  <span class="n">extended_s3_configuration</span> <span class="n">{</span>
+    <span class="n">role_arn</span>           <span class="n">=</span> <span class="n">aws_iam_role</span><span class="n">.firehose_role</span><span class="n">.arn</span>
+    <span class="n">bucket_arn</span>         <span class="n">=</span> <span class="n">aws_s3_bucket</span><span class="n">.datalake</span><span class="n">.arn</span>
+    <span class="n">prefix</span>             <span class="n">=</span> <span class="s">"bronze/events/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"</span>
+    <span class="n">error_output_prefix</span> <span class="n">=</span> <span class="s">"_quarantine/firehose-errors/!{firehose:error-output-type}/"</span>
+    <span class="n">buffering_size</span>     <span class="n">=</span> <span class="m">128</span>   <span class="c"># MB — flush when buffer hits 128 MB</span>
+    <span class="n">buffering_interval</span> <span class="n">=</span> <span class="m">300</span>   <span class="c"># seconds — flush every 5 min at minimum</span>
+    <span class="n">compression_format</span> <span class="n">=</span> <span class="s">"GZIP"</span>
+  <span class="n">}</span>
+<span class="n">}</span></code></pre>
+
+        <div class="callout info">
+          <strong>Never transform in Bronze:</strong> Resist the temptation to apply any business logic, type casting, or filtering during ingestion. If your transformation logic turns out to be wrong (and it will), you need the raw data to reprocess. Bronze is your time machine — it should always let you replay the entire history.
+        </div>
+
+        <h2 id="silver-layer">5. Silver Layer: Cleansed &amp; Conformed</h2>
+        <p>
+          The silver layer applies schema enforcement, deduplication, null handling, and type casting. The output is trusted by data scientists and analysts for exploratory work — they should never need to handle malformed data.
+        </p>
+
+<pre><code><span class="c"># bronze_to_silver.py — core transformation pattern</span>
+<span class="k">from</span> <span class="n">pyspark.sql</span> <span class="k">import</span> <span class="n">SparkSession</span><span class="n">,</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+<span class="k">from</span> <span class="n">pyspark.sql.types</span> <span class="k">import</span> <span class="n">StructType</span><span class="n">, StructField, StringType, LongType, TimestampType</span>
+<span class="k">from</span> <span class="n">delta.tables</span> <span class="k">import</span> <span class="n">DeltaTable</span>
+
+<span class="n">BRONZE_PATH</span> <span class="n">=</span> <span class="s">"s3://org-datalake-prod/bronze/events/"</span>
+<span class="n">SILVER_PATH</span> <span class="n">=</span> <span class="s">"s3://org-datalake-prod/silver/events/"</span>
+<span class="n">RUN_DATE</span>    <span class="n">=</span> <span class="s">"2026-06-05"</span>
+
+<span class="c"># Enforced schema — bronze may have extra fields; we only promote what we own</span>
+<span class="n">SILVER_SCHEMA</span> <span class="n">=</span> <span class="n">StructType</span><span class="n">([</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">,</span>   <span class="n">StringType</span><span class="n">(),</span>    <span class="n">nullable=False</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span>    <span class="n">StringType</span><span class="n">(),</span>    <span class="n">nullable=False</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">,</span> <span class="n">StringType</span><span class="n">(),</span>    <span class="n">nullable=True</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"amount_brl"</span><span class="n">,</span> <span class="n">LongType</span><span class="n">(),</span>      <span class="n">nullable=True</span><span class="n">)</span><span class="n">,</span>
+    <span class="n">StructField</span><span class="n">(</span><span class="s">"event_ts"</span><span class="n">,</span>   <span class="n">TimestampType</span><span class="n">(),</span> <span class="n">nullable=False</span><span class="n">)</span><span class="n">,</span>
+<span class="n">])</span>
+
+<span class="n">df_bronze</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">spark</span><span class="n">.read</span>
+    <span class="n">.schema</span><span class="n">(</span><span class="n">SILVER_SCHEMA</span><span class="n">)</span>
+    <span class="n">.json</span><span class="n">(</span><span class="n">f</span><span class="s">"{BRONZE_PATH}year={RUN_DATE[:4]}/month={RUN_DATE[5:7]}/day={RUN_DATE[8:10]}/"</span><span class="n">)</span>
+<span class="n">)</span>
+
+<span class="n">df_silver</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">df_bronze</span>
+    <span class="c"># Drop rows missing primary key — send to quarantine separately</span>
+    <span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">)</span><span class="n">.isNotNull</span><span class="n">()</span> <span class="n">&amp;</span> <span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">)</span><span class="n">.isNotNull</span><span class="n">()</span><span class="n">)</span>
+    <span class="c"># Dedup: keep latest record per event_id in this batch</span>
+    <span class="n">.dropDuplicates</span><span class="n">([</span><span class="s">"event_id"</span><span class="n">])</span>
+    <span class="c"># Normalise</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">,</span> <span class="n">F</span><span class="n">.lower</span><span class="n">(</span><span class="n">F</span><span class="n">.trim</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_type"</span><span class="n">))))</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"date"</span><span class="n">,</span> <span class="n">F</span><span class="n">.to_date</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_ts"</span><span class="n">)))</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"_ingested_at"</span><span class="n">,</span> <span class="n">F</span><span class="n">.current_timestamp</span><span class="n">())</span>
+<span class="n">)</span>
+
+<span class="c"># Upsert into Delta Silver table (idempotent re-runs)</span>
+<span class="k">if</span> <span class="n">DeltaTable</span><span class="n">.isDeltaTable</span><span class="n">(</span><span class="n">spark</span><span class="n">,</span> <span class="n">SILVER_PATH</span><span class="n">):</span>
+    <span class="n">DeltaTable</span><span class="n">.forPath</span><span class="n">(</span><span class="n">spark</span><span class="n">,</span> <span class="n">SILVER_PATH</span><span class="n">)</span>\
+        <span class="n">.alias</span><span class="n">(</span><span class="s">"t"</span><span class="n">)</span>\
+        <span class="n">.merge</span><span class="n">(</span><span class="n">df_silver</span><span class="n">.alias</span><span class="n">(</span><span class="s">"s"</span><span class="n">),</span> <span class="s">"t.event_id = s.event_id"</span><span class="n">)</span>\
+        <span class="n">.whenMatchedUpdateAll</span><span class="n">()</span>\
+        <span class="n">.whenNotMatchedInsertAll</span><span class="n">()</span>\
+        <span class="n">.execute</span><span class="n">()</span>
+<span class="k">else</span><span class="n">:</span>
+    <span class="n">df_silver</span><span class="n">.write</span><span class="n">.format</span><span class="n">(</span><span class="s">"delta"</span><span class="n">)</span><span class="n">.partitionBy</span><span class="n">(</span><span class="s">"date"</span><span class="n">)</span><span class="n">.save</span><span class="n">(</span><span class="n">SILVER_PATH</span><span class="n">)</span></code></pre>
+
+        <h3>Why Delta Lake for Silver and Gold?</h3>
+        <p>
+          Plain Parquet on S3 is write-once. To update or delete records (GDPR erasure, late-arriving corrections), you have to rewrite entire partitions. Delta Lake adds ACID transactions, a transaction log, and MERGE/UPDATE/DELETE semantics on top of Parquet — without moving away from S3. On AWS, use the open-source <code>delta-spark</code> library with EMR or Glue.
+        </p>
+
+        <h2 id="gold-layer">6. Gold Layer: Business Aggregates</h2>
+        <p>
+          Gold tables are pre-aggregated, denormalised, and optimised for read performance — not storage efficiency. A BI analyst or data scientist consuming gold data should never need to join more than 2 tables or filter by anything other than a date range.
+        </p>
+
+<pre><code><span class="c"># silver_to_gold.py — daily user transaction summary</span>
+<span class="n">df_gold</span> <span class="n">=</span> <span class="n">(</span>
+    <span class="n">spark</span><span class="n">.read</span><span class="n">.format</span><span class="n">(</span><span class="s">"delta"</span><span class="n">)</span><span class="n">.load</span><span class="n">(</span><span class="n">SILVER_PATH</span><span class="n">)</span>
+    <span class="n">.filter</span><span class="n">(</span><span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"date"</span><span class="n">)</span> <span class="n">==</span> <span class="n">RUN_DATE</span><span class="n">)</span>
+    <span class="n">.groupBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span> <span class="s">"event_type"</span><span class="n">,</span> <span class="s">"date"</span><span class="n">)</span>
+    <span class="n">.agg</span><span class="n">(</span>
+        <span class="n">F</span><span class="n">.count</span><span class="n">(</span><span class="s">"*"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"event_count"</span><span class="n">),</span>
+        <span class="n">F</span><span class="n">.sum</span><span class="n">(</span><span class="s">"amount_brl"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"total_amount_brl"</span><span class="n">),</span>
+        <span class="n">F</span><span class="n">.countDistinct</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"unique_events"</span><span class="n">),</span>
+        <span class="n">F</span><span class="n">.max</span><span class="n">(</span><span class="s">"event_ts"</span><span class="n">)</span><span class="n">.alias</span><span class="n">(</span><span class="s">"last_event_ts"</span><span class="n">),</span>
+    <span class="n">)</span>
+    <span class="n">.withColumn</span><span class="n">(</span><span class="s">"_computed_at"</span><span class="n">,</span> <span class="n">F</span><span class="n">.current_timestamp</span><span class="n">())</span>
+<span class="n">)</span>
+
+<span class="c"># Z-order on frequently filtered columns for faster Athena / Redshift Spectrum reads</span>
+<span class="c"># (Delta Lake specific — rewrites files sorted by these columns)</span>
+<span class="n">DeltaTable</span><span class="n">.forPath</span><span class="n">(</span><span class="n">spark</span><span class="n">,</span> <span class="n">GOLD_PATH</span><span class="n">)</span>\
+    <span class="n">.optimize</span><span class="n">()</span><span class="n">.executeZOrderBy</span><span class="n">(</span><span class="s">"user_id"</span><span class="n">,</span> <span class="s">"event_type"</span><span class="n">)</span></code></pre>
+
+        <h2 id="data-quality">7. Data Quality Gates</h2>
+        <p>
+          Every layer transition must be gated by a quality check. Data that fails a quality rule should never advance to the next layer — it should land in quarantine and trigger an alert.
+        </p>
+
+        <h3>Quality rules per layer</h3>
+        <table class="comparison-table">
+          <thead>
+            <tr><th>Layer transition</th><th>Rule type</th><th>Example check</th><th>On failure</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Bronze → Silver</strong></td>
+              <td>Schema completeness</td>
+              <td><code>event_id IS NOT NULL</code> for &gt;99% of rows</td>
+              <td>Quarantine bad rows, proceed with clean rows</td>
+            </tr>
+            <tr>
+              <td><strong>Bronze → Silver</strong></td>
+              <td>Referential integrity</td>
+              <td><code>event_type</code> IN known set of values</td>
+              <td>Flag unknowns, alert, do not block</td>
+            </tr>
+            <tr>
+              <td><strong>Silver → Gold</strong></td>
+              <td>Aggregate freshness</td>
+              <td>Row count within ±10% of 7-day average</td>
+              <td>Halt pipeline, page on-call</td>
+            </tr>
+            <tr>
+              <td><strong>Silver → Gold</strong></td>
+              <td>Business constraint</td>
+              <td><code>amount_brl &gt;= 0</code> for all transactions</td>
+              <td>Quarantine, alert, halt gold write</td>
+            </tr>
+          </tbody>
+        </table>
+
+<pre><code><span class="c"># Lightweight quality gate using native PySpark — no extra libraries needed</span>
+<span class="k">def</span> <span class="n">assert_quality</span><span class="n">(</span><span class="n">df</span><span class="n">,</span> <span class="n">col</span><span class="n">,</span> <span class="n">condition</span><span class="n">,</span> <span class="n">threshold</span><span class="n">=</span><span class="m">0.99</span><span class="n">,</span> <span class="n">name</span><span class="n">=</span><span class="s">""</span><span class="n">):</span>
+    <span class="n">total</span>   <span class="n">=</span> <span class="n">df</span><span class="n">.count</span><span class="n">()</span>
+    <span class="n">passing</span> <span class="n">=</span> <span class="n">df</span><span class="n">.filter</span><span class="n">(</span><span class="n">condition</span><span class="n">)</span><span class="n">.count</span><span class="n">()</span>
+    <span class="n">ratio</span>   <span class="n">=</span> <span class="n">passing</span> <span class="n">/</span> <span class="n">total</span> <span class="k">if</span> <span class="n">total</span> <span class="n">&gt;</span> <span class="m">0</span> <span class="k">else</span> <span class="m">0</span>
+    <span class="k">if</span> <span class="n">ratio</span> <span class="n">&lt;</span> <span class="n">threshold</span><span class="n">:</span>
+        <span class="k">raise</span> <span class="n">ValueError</span><span class="n">(</span><span class="n">f</span><span class="s">f"Quality gate FAILED [{name}]: {ratio:.2%} &lt; {threshold:.2%}"</span><span class="n">)</span>
+    <span class="k">print</span><span class="n">(</span><span class="n">f</span><span class="s">f"Quality gate PASSED [{name}]: {ratio:.2%}"</span><span class="n">)</span>
+
+<span class="n">assert_quality</span><span class="n">(</span><span class="n">df_silver</span><span class="n">,</span> <span class="s">"event_id"</span><span class="n">,</span> <span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"event_id"</span><span class="n">)</span><span class="n">.isNotNull</span><span class="n">(),</span> <span class="n">threshold=</span><span class="m">0.999</span><span class="n">,</span> <span class="n">name=</span><span class="s">"event_id not null"</span><span class="n">)</span>
+<span class="n">assert_quality</span><span class="n">(</span><span class="n">df_silver</span><span class="n">,</span> <span class="s">"amount_brl"</span><span class="n">,</span> <span class="n">F</span><span class="n">.col</span><span class="n">(</span><span class="s">"amount_brl"</span><span class="n">)</span> <span class="n">&gt;=</span> <span class="m">0</span><span class="n">,</span> <span class="n">threshold=</span><span class="m">1.0</span><span class="n">,</span> <span class="n">name=</span><span class="s">"non-negative amount"</span><span class="n">)</span></code></pre>
+
+        <h2 id="governance">8. Governance with Lake Formation</h2>
+        <p>
+          As the number of consumers grows, IAM bucket policies become unmanageable. AWS Lake Formation provides a centralised permission model over the Glue Data Catalog — column-level, row-level, and tag-based access control without changing S3 bucket policies.
+        </p>
+        <ul>
+          <li><strong>Data Scientists</strong> get <code>SELECT</code> on <code>silver.*</code> — all tables, all columns.</li>
+          <li><strong>BI Analysts</strong> get <code>SELECT</code> on <code>gold.*</code> — pre-aggregated, no PII columns.</li>
+          <li><strong>ML Pipelines</strong> get <code>SELECT</code> on specific <code>gold.*</code> feature tables only.</li>
+          <li><strong>ETL roles</strong> (Glue, EMR) get <code>ALL</code> on their own layer prefix only — a Bronze ETL role cannot write to Silver.</li>
+        </ul>
+
+        <div class="callout warning">
+          <strong>Lake Formation gotcha:</strong> Lake Formation permissions layer on top of IAM, not replace it. A principal needs both a valid IAM role AND a Lake Formation grant to access a table. Debugging access denials requires checking both layers — the Lake Formation console shows "Data lake access denied" separately from IAM policy denials. Enable CloudTrail data events on the S3 bucket to audit all access at the object level.
+        </div>
+
+        <h2 id="orchestration">9. Orchestration with Step Functions &amp; EventBridge</h2>
+        <p>
+          The pipeline between layers needs reliable orchestration — not a cron job. AWS Step Functions with EventBridge Scheduler gives you visual state machines, automatic retries, failure notifications, and execution history.
+        </p>
+
+<pre><code><span class="c"># EventBridge Scheduler: trigger Bronze-to-Silver pipeline at 02:00 UTC daily</span>
+<span class="n">resource</span> <span class="s">"aws_scheduler_schedule"</span> <span class="s">"daily_etl"</span> <span class="n">{</span>
+  <span class="n">name</span>                         <span class="n">=</span> <span class="s">"bronze-to-silver-daily"</span>
+  <span class="n">schedule_expression</span>          <span class="n">=</span> <span class="s">"cron(0 2 * * ? *)"</span>
+  <span class="n">schedule_expression_timezone</span> <span class="n">=</span> <span class="s">"UTC"</span>
+
+  <span class="n">flexible_time_window</span> <span class="n">{ mode = </span><span class="s">"OFF"</span> <span class="n">}</span>
+
+  <span class="n">target</span> <span class="n">{</span>
+    <span class="n">arn      = aws_sfn_state_machine.medallion_pipeline.arn</span>
+    <span class="n">role_arn = aws_iam_role.scheduler_role.arn</span>
+    <span class="n">input    = jsonencode({</span>
+      <span class="n">run_date    = "$.time"  </span><span class="c"># injected from EventBridge event</span>
+      <span class="n">environment = "prod"</span>
+    <span class="n">})</span>
+    <span class="n">retry_policy {</span>
+      <span class="n">maximum_retry_attempts       = 2</span>
+      <span class="n">maximum_event_age_in_seconds = 3600</span>
+    <span class="n">}</span>
+  <span class="n">}</span>
+<span class="n">}</span></code></pre>
+
+        <div class="callout tip">
+          <strong>Step Functions Express vs Standard:</strong> Use <strong>Standard</strong> workflows for the medallion pipeline — they persist execution history for 90 days, support exactly-once execution semantics, and can run up to 1 year. Express workflows are cheaper but limited to 5-minute maximum duration and at-least-once semantics, making them unsuitable for multi-hour ETL jobs.
+        </div>
+
+        <h2 id="pitfalls">10. Common Pitfalls &amp; How to Avoid Them</h2>
+
+        <table class="comparison-table">
+          <thead>
+            <tr><th>Pitfall</th><th>Symptom</th><th>Fix</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Transforming in Bronze</strong></td>
+              <td>Cannot replay history when logic changes</td>
+              <td>Land raw bytes, transform only in Silver</td>
+            </tr>
+            <tr>
+              <td><strong>Over-partitioning Silver</strong></td>
+              <td>Thousands of 1 KB Parquet files, slow S3 LIST</td>
+              <td>Partition by date only; use Z-order for secondary dimensions</td>
+            </tr>
+            <tr>
+              <td><strong>No idempotent writes</strong></td>
+              <td>Duplicate data on retry after failure</td>
+              <td>Use Delta MERGE with primary key; Glue job bookmarks for Bronze</td>
+            </tr>
+            <tr>
+              <td><strong>Gold tables too normalised</strong></td>
+              <td>BI tools joining 5 tables, slow dashboards</td>
+              <td>Denormalise into wide tables; pre-join dimensions at write time</td>
+            </tr>
+            <tr>
+              <td><strong>No quarantine layer</strong></td>
+              <td>Bad records silently dropped; no audit trail</td>
+              <td>Write every rejected record to <code>_quarantine/</code> with error reason</td>
+            </tr>
+            <tr>
+              <td><strong>Skipping data quality gates</strong></td>
+              <td>Corrupt gold data surfaced in BI dashboards</td>
+              <td>Assert row counts and key constraints at every layer boundary</td>
+            </tr>
+            <tr>
+              <td><strong>Single S3 bucket for all envs</strong></td>
+              <td>Dev jobs writing to prod paths</td>
+              <td>Separate buckets per environment, enforce with IAM conditions</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <strong>From production at NTT DATA / Banco Itaú:</strong> The pitfall that caused the most incidents was skipping idempotent writes in the early Silver jobs. A transient Glue job failure on retry would duplicate the day's events because we were using <code>.mode("append")</code> instead of Delta MERGE. After switching to MERGE on <code>event_id</code>, reruns became completely safe and the deduplication issue disappeared — removing an entire class of data incidents.
+        </div>
+
+        <p>
+          The medallion architecture is not complex — it is disciplined. Bronze for raw immutability, Silver for trusted data, Gold for business-ready aggregates. Three layers, clear contracts between them, quality gates enforced at each boundary. That discipline is what makes a data lake usable at scale instead of a swamp.
+        </p>
+        <p>
+          Questions about adapting this to your stack? Connect on <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> or read more on <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener">Hashnode</a>.
+        </p>
+
+      </div>
+
+      <aside class="author-card" aria-label="About the author">
+        <div class="author-avatar" aria-hidden="true">DC</div>
+        <div class="author-info">
+          <h3>Daniel Cruz Rodrigues</h3>
+          <p>Senior Data Engineer at NTT DATA (Banco Itaú). Databricks &amp; AWS specialist. 6× AWS certified. Building large-scale Data Lakes processing 20M+ records/day.</p>
+          <div class="author-links">
+            <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-globe" aria-hidden="true"></i> Portfolio</a>
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener"><i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn</a>
+            <a href="https://danielcruzrodrigues.hashnode.dev" target="_blank" rel="noopener"><i class="fa-solid fa-rss" aria-hidden="true"></i> Hashnode</a>
+            <a href="https://github.com/EddesucessoCloud/" target="_blank" rel="noopener"><i class="fa-brands fa-github" aria-hidden="true"></i> GitHub</a>
+          </div>
+        </div>
+      </aside>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Daniel Cruz Rodrigues · <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a> · <a href="index.html">Blog</a> · <a href="mailto:danielcruz.alu.lmb@gmail.com">Contact</a></p>
+  </footer>
+
+</body>
+</html>
