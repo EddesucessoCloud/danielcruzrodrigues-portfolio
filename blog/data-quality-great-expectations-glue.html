@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Data Quality with Great Expectations on AWS Glue: A Production Setup | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="How to run Great Expectations data quality checks inside AWS Glue ETL jobs. Covers expectation suites, S3 Data Docs, checkpoint configuration, and integrating DQ failures into pipeline alerting." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/data-quality-great-expectations-glue.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Data Quality with Great Expectations on AWS Glue: A Production Setup" />
+  <meta property="og:description" content="How to run Great Expectations data quality checks inside AWS Glue ETL jobs. Covers expectation suites, S3 Data Docs, checkpoint configuration, and integrating DQ failures into pipeline alerting." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/data-quality-great-expectations-glue.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Data Quality with Great Expectations on AWS Glue: A Production Setup",
+    "description": "How to run Great Expectations data quality checks inside AWS Glue ETL jobs. Covers expectation suites, S3 Data Docs, checkpoint configuration, and integrating DQ failures into pipeline alerting.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/data-quality-great-expectations-glue.html",
+    "keywords": ["Great Expectations", "AWS Glue", "data quality", "GX", "data validation", "ETL data quality", "S3 Data Docs", "data engineering"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+
+    /* -- Diagram -- */
+    .diagram-interactive {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .diagram-interactive summary {
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: 'B6 '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: 'BC '; }
+    .diagram-interactive .mxgraph-wrap {
+      padding: 0.5rem;
+      background: #ffffff;
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        <span class="tag">Great Expectations</span>
+        <span class="tag tag-green">Data Quality</span>
+        <span class="tag tag-amber">AWS Glue</span>
+      </div>
+
+      <h1>Data Quality with Great Expectations on AWS Glue: A Production Setup</h1>
+
+      <h2>The Glue job that passed but delivered garbage for 11 days</h2>
+      <p>A Glue ETL job was processing daily sales data from an RDS source. The job completed without errors every morning. What nobody noticed: the source team had changed a column name from <code>sale_amount</code> to <code>amount_usd</code> twelve days ago. The Glue job read the missing column as null, summed nulls as zero, and wrote zeros to the gold layer. Eleven days of zero-revenue records landed in Redshift. The finance dashboard looked correct — all green — because zero is a valid number. Great Expectations with a <code>expect_column_values_to_not_be_null</code> check on <code>sale_amount</code> would have caught this on day one.</p>
+
+      <h2>Great Expectations on Glue: the packaging challenge</h2>
+      <p><strong>Great Expectations (GX)</strong> is a Python library. Running it inside a Glue job requires packaging it as a Python wheel and passing it via the Glue job's <code>--additional-python-modules</code> parameter. GX 0.18+ works with Glue 4.0 (Python 3.10, Spark 3.3). Earlier Glue versions require pinning GX to 0.15.x due to dependency conflicts with the pre-installed boto3 version.</p>
+
+      <pre><code class="language-bash"># Package GX for Glue
+pip install great-expectations==0.18.15 --target ./gx_dist
+cd gx_dist && zip -r ../great_expectations.zip . && cd ..
+aws s3 cp great_expectations.zip s3://your-glue-assets/libs/
+
+# In Terraform or Glue job definition:
+# --additional-python-modules great_expectations==0.18.15
+# Or use wheel file: upload to S3 and reference via --extra-py-files</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>Great Expectations has significant transitive dependencies (ruamel.yaml, mistune, jinja2, marshmallow). When using <code>--additional-python-modules</code>, version conflicts with Glue's pre-installed packages are common. Pin versions explicitly and test in a Glue development endpoint before deploying. GX startup adds 30–45 seconds to Glue job cold start time.</p>
+      </div>
+
+      <h2>Setting up the context and expectation suite</h2>
+      <pre><code class="language-python">import great_expectations as gx
+from great_expectations.core.batch import RuntimeBatchRequest
+from pyspark.sql import SparkSession
+
+# Use ephemeral (in-memory) Data Context — no filesystem required in Glue
+context = gx.get_context(mode="ephemeral")
+
+# Configure S3 as Data Docs site (publishes HTML quality report to S3)
+context.add_store(
+    store_name="validation_result_store",
+    store_config={
+        "class_name": "ValidationsStore",
+        "store_backend": {
+            "class_name": "TupleS3StoreBackend",
+            "bucket": "your-datalake",
+            "prefix": "great_expectations/validations/"
+        }
+    }
+)
+
+context.add_data_docs_site(
+    site_name="s3_site",
+    site_config={
+        "class_name": "SiteBuilder",
+        "store_backend": {
+            "class_name": "TupleS3StoreBackend",
+            "bucket": "your-datalake",
+            "prefix": "great_expectations/data_docs/"
+        },
+        "site_index_builder": {"class_name": "DefaultSiteIndexBuilder"}
+    }
+)</code></pre>
+
+      <h2>Defining expectations that catch real problems</h2>
+      <pre><code class="language-python">from great_expectations.core import ExpectationSuite, ExpectationConfiguration
+
+suite = ExpectationSuite(expectation_suite_name="sales_daily_v1")
+
+# Structural checks — catch schema drift immediately
+suite.add_expectation(ExpectationConfiguration(
+    expectation_type="expect_table_columns_to_match_ordered_list",
+    kwargs={"column_list": ["order_id", "customer_id", "sale_amount", "sale_date", "region"]}
+))
+
+# Completeness — no nulls on critical columns
+suite.add_expectation(ExpectationConfiguration(
+    expectation_type="expect_column_values_to_not_be_null",
+    kwargs={"column": "sale_amount", "mostly": 1.0}
+))
+
+# Range checks — catch unit errors (cents vs dollars, negative values)
+suite.add_expectation(ExpectationConfiguration(
+    expectation_type="expect_column_values_to_be_between",
+    kwargs={"column": "sale_amount", "min_value": 0.01, "max_value": 1000000}
+))
+
+# Volume check — catch data pipeline failures that produce empty datasets
+suite.add_expectation(ExpectationConfiguration(
+    expectation_type="expect_table_row_count_to_be_between",
+    kwargs={"min_value": 1000, "max_value": 10000000}
+))
+
+# Referential integrity — region must be a known value
+suite.add_expectation(ExpectationConfiguration(
+    expectation_type="expect_column_values_to_be_in_set",
+    kwargs={"column": "region", "value_set": ["US", "EU", "APAC", "LATAM"]}
+))</code></pre>
+
+      <h2>Running validations inside the Glue job</h2>
+      <pre><code class="language-python">from great_expectations.datasource.fluent import SparkDatasource
+
+# Register the Spark DataFrame as a GX data source
+datasource = context.sources.add_spark(name="glue_spark")
+data_asset = datasource.add_dataframe_asset(name="sales_data")
+
+# Validate — this triggers all expectations in the suite
+batch_request = data_asset.build_batch_request(dataframe=sales_df)
+checkpoint = context.add_or_update_checkpoint(
+    name="sales_checkpoint",
+    validations=[{
+        "batch_request": batch_request,
+        "expectation_suite_name": "sales_daily_v1"
+    }]
+)
+
+results = checkpoint.run()
+context.build_data_docs()  # Publish HTML report to S3
+
+# Fail the Glue job if critical expectations fail
+if not results.success:
+    failed = [
+        f"{v['expectation_config']['expectation_type']} on {v['expectation_config']['kwargs'].get('column', 'table')}"
+        for r in results.run_results.values()
+        for v in r['results'] if not v['success']
+    ]
+    raise ValueError(f"Data quality failed: {', '.join(failed[:5])}")</code></pre>
+
+      <h2>Architecture: GX validation in the ETL pipeline</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// Great Expectations data quality pipeline on AWS Glue</p>
+        <img src="images/data-quality-great-expectations-glue-architecture.png"
+             alt="Great Expectations data quality checks integrated into AWS Glue ETL pipeline with S3 Data Docs reporting"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+
+          <!-- diagram XML: raw text in script tag avoids HTML entity processing -->
+          <script id="gx-diagram-data" type="application/json">{"nav": true, "resize": true, "toolbar": "zoom layers lightbox", "edit": "_blank", "xml": "<mxfile host=\"Electron\" version=\"29.6.1\">\n  <diagram name=\"Page-1\" id=\"diagram-1\">\n    <mxGraphModel dx=\"1200\" dy=\"800\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"0\" pageScale=\"1\" pageWidth=\"2250\" pageHeight=\"900\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n\n        <!-- Title block -->\n        <mxCell id=\"title-group\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"83\" width=\"1460\" x=\"50\" y=\"30\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-text\" style=\"text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;\" value=\"Data Quality with Great Expectations on AWS Glue\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"42\" width=\"1000\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"subtitle-text\" style=\"text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;\" value=\"Ephemeral context, S3 Data Docs, expectation suites, SNS alerting, and mostly threshold pattern\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"25\" width=\"1000\" x=\"5\" y=\"40\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-separator\" style=\"line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"10\" width=\"1450\" x=\"5\" y=\"70\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- AWS Cloud boundary -->\n        <mxCell id=\"aws-cloud\" style=\"points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);fillStyle=auto;verticalAlign=top;align=center;spacingTop=25;fontStyle=1;fontSize=14;fontColor=#232F3E;dashed=0;container=0;fontFamily=Helvetica;\" value=\"AWS Cloud\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"50\" y=\"140\" width=\"1460\" height=\"540\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 source data -->\n        <mxCell id=\"svc-group-s3-src\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"120\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3-src\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;raw input data&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3-src\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Glue + GX job -->\n        <mxCell id=\"svc-group-glue\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"400\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-glue\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.glue;fontFamily=Helvetica;shadow=1;\" value=\"AWS Glue + GX&lt;div&gt;&lt;i&gt;ephemeral context validation&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-glue\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 Data Docs -->\n        <mxCell id=\"svc-group-s3-docs\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"180\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3-docs\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;GX Data Docs HTML&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3-docs\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- SNS alerting -->\n        <mxCell id=\"svc-group-sns\" style=\"fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"App Integration\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-sns\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sns;fontFamily=Helvetica;shadow=1;\" value=\"Amazon SNS&lt;div&gt;&lt;i&gt;DQ failure alerts&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-sns\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 output (validated data) -->\n        <mxCell id=\"svc-group-s3-out\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3-out\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;validated output&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3-out\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- CloudWatch auxiliary -->\n        <mxCell id=\"aux-group\" style=\"dashed=1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;strokeColor=#666666;fillColor=#F5F5F5;\" value=\"Auxiliary Services\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1250\" y=\"540\" width=\"200\" height=\"110\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-cw\" style=\"sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch_2;fontFamily=Helvetica;\" value=\"CloudWatch&lt;div&gt;&lt;i&gt;DQ metrics alarm&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"aux-group\">\n          <mxGeometry x=\"76\" y=\"25\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Edges -->\n        <mxCell id=\"edge-s3-glue\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#3F8624;\" edge=\"1\" parent=\"1\" source=\"svc-s3-src\" target=\"svc-glue\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-s3-glue-label\" value=\"read batch\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-s3-glue\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-glue-docs\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#8C4FFF;\" edge=\"1\" parent=\"1\" source=\"svc-glue\" target=\"svc-s3-docs\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-glue-docs-label\" value=\"validation report\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-glue-docs\">\n          <mxGeometry relative=\"1\" x=\"-0.3\" y=\"0\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-glue-out\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#3F8624;\" edge=\"1\" parent=\"1\" source=\"svc-glue\" target=\"svc-s3-out\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-glue-out-label\" value=\"pass (mostly &gt;= 0.99)\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-glue-out\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-glue-sns\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-glue\" target=\"svc-sns\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-glue-sns-label\" value=\"fail: publish alert\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-glue-sns\">\n          <mxGeometry relative=\"1\" x=\"-0.3\" y=\"0\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <!-- Step badges -->\n        <mxCell id=\"badge-1\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"293\" y=\"353\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-2\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"553\" y=\"253\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-3\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"553\" y=\"353\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-4\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"553\" y=\"483\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-5\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"850\" y=\"243\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Legend panel -->\n        <mxCell id=\"legend-bg\" style=\"verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"540\" width=\"650\" x=\"1560\" y=\"140\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontStyle=1;labelBackgroundColor=none;fontFamily=Helvetica;\" value=\"Architecture Steps\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1590\" y=\"158\" width=\"300\" height=\"25\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-1-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"195\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;S3 source data read&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Glue Spark reads Parquet from S3. Great Expectations packaged via --additional-python-modules adds 30-45s cold start overhead.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-2-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"293\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;GX validation report written&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Ephemeral DataContext writes HTML Data Docs to S3. Team browses via S3 static website. No persistent GX store needed.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-3-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"391\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Validated data written to S3&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;On pass (mostly &gt;= 0.99 threshold), Glue writes clean data. Pipeline continues. Sub-threshold batch quarantined to separate prefix.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-4-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"489\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;SNS failure alert&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;On expectation failure, Glue publishes to SNS topic. Subscribers receive DQ failure summary with expectation name and row counts.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-5-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"587\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Data Docs browseable&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;S3 static site hosts GX Data Docs. Analysts review expectation results, success rates, and historical validation timeline per suite.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>"}</script>
+
+          <details class="diagram-interactive">
+            <summary>INTERACTIVE DIAGRAM — zoom &amp; pan</summary>
+            <div class="mxgraph-wrap">
+              <div id="gx-mxgraph" class="mxgraph" style="max-width:100%;"></div>
+            </div>
+          </details>
+          <script>
+            (function () {
+              var det = document.querySelector('.diagram-interactive');
+              if (!det) return;
+              det.addEventListener('toggle', function () {
+                if (det.open && !window.__drawioViewerLoaded) {
+                  window.__drawioViewerLoaded = true;
+                  var cfg = document.getElementById('gx-diagram-data').textContent;
+                  document.getElementById('gx-mxgraph').setAttribute('data-mxgraph', cfg);
+                  var s = document.createElement('script');
+                  s.src = 'https://viewer.diagrams.net/js/viewer.min.js';
+                  document.head.appendChild(s);
+                }
+              });
+            })();
+          </script>
+
+        </div>
+
+      <h2>Alerting on DQ failures: SNS + CloudWatch</h2>
+      <pre><code class="language-python">import boto3
+import json
+
+sns = boto3.client('sns', region_name='us-east-1')
+
+def publish_dq_alert(suite_name: str, failed_expectations: list, run_date: str):
+    message = {
+        "alert_type": "DATA_QUALITY_FAILURE",
+        "pipeline": suite_name,
+        "run_date": run_date,
+        "failed_count": len(failed_expectations),
+        "failures": failed_expectations[:10],  # cap at 10 for readability
+        "data_docs_url": f"https://your-datalake.s3.amazonaws.com/great_expectations/data_docs/index.html"
+    }
+    sns.publish(
+        TopicArn="arn:aws:sns:us-east-1:123456789012:data-quality-alerts",
+        Subject=f"[DQ FAILURE] {suite_name} — {len(failed_expectations)} checks failed",
+        Message=json.dumps(message, indent=2)
+    )</code></pre>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">✓ Tip</div>
+        <p>Separate expectations into "blocking" (job fails, data not written) and "warning" (data written, alert sent). A missing column is blocking. A slightly higher-than-usual null rate in an optional field is a warning. Treating all DQ failures as blocking causes pipeline outages over minor data drift; treating all as warnings defeats the purpose.</p>
+      </div>
+
+      <h2>Performance: GX overhead at scale</h2>
+      <p>Great Expectations runs on the Spark driver for dataset-level expectations (row count, column existence) and triggers Spark actions for column-level checks (null counts, value ranges). At 100M rows, a suite with 20 expectations adds approximately 90 seconds to job runtime — each expectation triggers a separate Spark job. Use <code>mostly</code> thresholds (e.g., <code>"mostly": 0.99</code>) to allow GX to short-circuit after sampling 1% of the dataset for column-level checks, reducing overhead to 15–20 seconds on large datasets.</p>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kafka vs Kinesis: The Decision Framework Nobody Publishes | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="A real cost and capability comparison of Apache Kafka on MSK vs Amazon Kinesis Data Streams. Decision framework based on throughput, consumer count, retention needs, and actual AWS pricing." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/kafka-vs-kinesis-decision-framework.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Kafka vs Kinesis: The Decision Framework Nobody Publishes" />
+  <meta property="og:description" content="A real cost and capability comparison of Apache Kafka on MSK vs Amazon Kinesis Data Streams. Decision framework based on throughput, consumer count, retention needs, and actual AWS pricing." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/kafka-vs-kinesis-decision-framework.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Kafka vs Kinesis: The Decision Framework Nobody Publishes",
+    "description": "A real cost and capability comparison of Apache Kafka on MSK vs Amazon Kinesis Data Streams. Decision framework based on throughput, consumer count, retention needs, and actual AWS pricing.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/kafka-vs-kinesis-decision-framework.html",
+    "keywords": ["Apache Kafka", "Amazon Kinesis", "MSK", "Kinesis Data Streams", "streaming", "data engineering", "real-time", "AWS cost"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .table-wrap{overflow-x:auto;margin:1.5rem 0;}
+    table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+    th{background:rgba(255,255,255,0.04);color:var(--text-primary);font-weight:600;text-align:left;padding:0.6rem 0.875rem;border-bottom:1px solid var(--border);}
+    td{padding:0.55rem 0.875rem;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top;}tr:last-child td{border-bottom:none;}td strong{color:var(--text-primary);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+
+    /* -- Diagram -- */
+    .diagram-interactive {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .diagram-interactive summary {
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: 'B6 '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: 'BC '; }
+    .diagram-interactive .mxgraph-wrap {
+      padding: 0.5rem;
+      background: #ffffff;
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 13 min read</span>
+        <span class="tag">Apache Kafka</span>
+        <span class="tag tag-green">Kinesis</span>
+        <span class="tag tag-amber">Streaming</span>
+      </div>
+
+      <h1>Kafka vs Kinesis: The Decision Framework Nobody Publishes</h1>
+
+      <h2>Kinesis was the right answer until we hit 5 consumers</h2>
+      <p>We built a real-time clickstream pipeline on Kinesis Data Streams. Four months in, the data science team wanted to read the same stream for model feature computation. The ML engineering team wanted it for anomaly detection. The compliance team wanted it for audit logging. We went from 1 consumer to 4. Kinesis standard gets cost quadrupled — each consumer application reads each shard independently at $0.015/shard-hour. At 20 shards, that is $8.64/day per consumer application. Four consumers: $34.56/day = $1,037/month just for reads. Enhanced Fan-Out existed, but at $0.015/shard-hour additional. MSK suddenly made financial sense.</p>
+
+      <h2>The fundamental architecture difference</h2>
+      <p><strong>Kinesis Data Streams</strong> is a shard-based, pull model where each shard delivers up to 2MB/s out, shared across all standard consumer applications reading it. <strong>Amazon MSK (Kafka)</strong> is a broker-based, push model where consumers pull independently from partition replicas — multiple consumer groups reading the same topic do not compete for throughput. This single difference drives most of the decision.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ The throughput math</div>
+        <p>Kinesis: 2MB/s write per shard, 2MB/s read per shard shared across all standard consumers. For 5 consumer applications reading 2MB/s each, you need 5 shards per consumer's required throughput — the read is not multiplexed. MSK: one partition delivers its full throughput to every consumer group independently. Five consumer groups do not multiply partition requirements.</p>
+      </div>
+
+      <h2>Cost model: where each wins</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Dimension</th><th>Kinesis KDS</th><th>MSK Kafka</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Shard/partition pricing</strong></td><td>$0.015/shard-hour ($10.80/shard-month)</td><td>Included in broker instance cost</td></tr>
+            <tr><td><strong>Enhanced Fan-Out</strong></td><td>$0.015/shard-hour additional per consumer</td><td>Not needed — all consumers read full throughput</td></tr>
+            <tr><td><strong>Minimum operational cost</strong></td><td>~$0/month (1 shard, no EFO)</td><td>~$196/month (kafka.t3.small × 3 brokers)</td></tr>
+            <tr><td><strong>At 20 shards, 5 consumers (EFO)</strong></td><td>~$2,160/month</td><td>~$490/month (kafka.m5.xlarge × 3)</td></tr>
+            <tr><td><strong>Retention max</strong></td><td>7 days (extended: $0.023/shard-hour)</td><td>Unlimited (storage cost only)</td></tr>
+            <tr><td><strong>Operational overhead</strong></td><td>None — fully managed</td><td>High — broker scaling, rebalancing, topic management</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>The consumer count break-even</h2>
+      <p>The break-even is approximately <strong>3 consumer applications</strong> at moderate throughput (10 shards). Below 3 consumers: Kinesis KDS wins on both cost and zero operational overhead. Above 3 consumers: MSK wins on cost but adds operational complexity. The break-even shifts lower as throughput increases — at 50 shards, MSK becomes cheaper at 2 consumers.</p>
+
+      <pre><code class="language-python"># Cost calculator: KDS vs MSK break-even
+def calculate_kinesis_cost(shards: int, consumers_efo: int) -> float:
+    shard_cost = shards * 0.015 * 24 * 30          # $0.015/shard-hour
+    efo_cost   = shards * consumers_efo * 0.015 * 24 * 30  # EFO per consumer
+    return shard_cost + efo_cost
+
+def calculate_msk_cost(broker_type: str = "kafka.m5.xlarge", brokers: int = 3) -> float:
+    prices = {"kafka.t3.small": 0.054, "kafka.m5.large": 0.216, "kafka.m5.xlarge": 0.432}
+    return prices[broker_type] * brokers * 24 * 30
+
+# At 20 shards, 5 EFO consumers:
+kinesis = calculate_kinesis_cost(20, 5)     # $2,160/month
+msk     = calculate_msk_cost("kafka.m5.xlarge", 3)  # ~$933/month
+
+print(f"KDS: ${kinesis:.0f}/month")
+print(f"MSK: ${msk:.0f}/month")
+print(f"MSK saves: ${kinesis - msk:.0f}/month at this scale")</code></pre>
+
+      <h2>Architecture: when to use each</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// Kafka (MSK) vs Kinesis — streaming architecture decision</p>
+        <img src="images/kafka-vs-kinesis-decision-framework-architecture.png"
+             alt="Apache Kafka MSK vs Amazon Kinesis Data Streams architecture comparison for streaming pipelines"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+
+          <!-- diagram XML: raw text in script tag avoids HTML entity processing -->
+          <script id="kafka-diagram-data" type="application/json">{"nav": true, "resize": true, "toolbar": "zoom layers lightbox", "edit": "_blank", "xml": "<mxfile host=\"Electron\" version=\"29.6.1\">\n  <diagram name=\"Page-1\" id=\"diagram-1\">\n    <mxGraphModel dx=\"1200\" dy=\"800\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"0\" pageScale=\"1\" pageWidth=\"2250\" pageHeight=\"900\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n\n        <!-- Title block -->\n        <mxCell id=\"title-group\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"83\" width=\"1460\" x=\"50\" y=\"30\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-text\" style=\"text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;\" value=\"Kafka (MSK) vs Kinesis \u2014 Streaming Decision Framework\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"42\" width=\"1050\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"subtitle-text\" style=\"text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;\" value=\"Consumer count break-even, EFO pricing, MSK Instance Fleet, and retention cost comparison\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"25\" width=\"1000\" x=\"5\" y=\"40\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-separator\" style=\"line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"10\" width=\"1450\" x=\"5\" y=\"70\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- AWS Cloud boundary -->\n        <mxCell id=\"aws-cloud\" style=\"points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);fillStyle=auto;verticalAlign=top;align=center;spacingTop=25;fontStyle=1;fontSize=14;fontColor=#232F3E;dashed=0;container=0;fontFamily=Helvetica;\" value=\"AWS Cloud\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"50\" y=\"140\" width=\"1460\" height=\"540\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Producers -->\n        <mxCell id=\"users-container\" style=\"fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;\" value=\"Producers\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"80\" y=\"320\" width=\"107\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"users-icon\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"users-container\">\n          <mxGeometry x=\"30\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- MSK (Kafka) -->\n        <mxCell id=\"svc-group-msk\" style=\"fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"App Integration\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"360\" y=\"210\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-msk\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;fontFamily=Helvetica;shadow=1;\" value=\"Amazon MSK&lt;div&gt;&lt;i&gt;$933/mo at break-even&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-msk\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Kinesis Data Streams -->\n        <mxCell id=\"svc-group-kds\" style=\"fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"App Integration\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"360\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-kds\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.kinesis_data_streams;fontFamily=Helvetica;shadow=1;\" value=\"Kinesis Data Streams&lt;div&gt;&lt;i&gt;EFO: $2,160/mo (5 consumers)&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-kds\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Lambda consumer -->\n        <mxCell id=\"svc-group-lambda\" style=\"fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Compute\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"660\" y=\"210\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-lambda\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fontFamily=Helvetica;shadow=1;\" value=\"AWS Lambda&lt;div&gt;&lt;i&gt;Kafka / KDS consumer&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-lambda\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Kinesis Firehose -->\n        <mxCell id=\"svc-group-firehose\" style=\"fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"App Integration\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"660\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-firehose\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.kinesis_firehose;fontFamily=Helvetica;shadow=1;\" value=\"Kinesis Firehose&lt;div&gt;&lt;i&gt;S3 delivery stream&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-firehose\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 storage -->\n        <mxCell id=\"svc-group-s3\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"960\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;long-term storage&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Edges -->\n        <mxCell id=\"edge-prod-msk\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"users-icon\" target=\"svc-msk\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-prod-msk-label\" value=\"3+ consumers\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-prod-msk\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-prod-kds\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"users-icon\" target=\"svc-kds\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-prod-kds-label\" value=\"up to 3 consumers\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-prod-kds\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-msk-lambda\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-msk\" target=\"svc-lambda\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-kds-firehose\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-kds\" target=\"svc-firehose\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-lambda-s3\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#ED7100;\" edge=\"1\" parent=\"1\" source=\"svc-lambda\" target=\"svc-s3\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-firehose-s3\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-firehose\" target=\"svc-s3\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Step badges -->\n        <mxCell id=\"badge-1\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"240\" y=\"260\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-2\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"240\" y=\"490\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-3\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"555\" y=\"253\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-4\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"555\" y=\"483\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-5\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"850\" y=\"353\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Legend panel -->\n        <mxCell id=\"legend-bg\" style=\"verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"540\" width=\"650\" x=\"1560\" y=\"140\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontStyle=1;labelBackgroundColor=none;fontFamily=Helvetica;\" value=\"Architecture Steps\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1590\" y=\"158\" width=\"300\" height=\"25\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-1-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"195\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Producers &amp;rarr; MSK (3+ consumers)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;With 3+ consumer apps, MSK at $933/mo beats Kinesis EFO at $2,160/mo (5 consumers x 20 shards). Break-even at ~3 consumers.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-2-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"293\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Producers &amp;rarr; Kinesis (up to 3)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;For 1-2 consumers, Kinesis is cheaper. Managed sharding, native Lambda integration, no cluster ops. EFO for low-latency.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-3-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"391\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;MSK &amp;rarr; Lambda consumer&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;MSK Kafka consumer group reads partitions. Instance Fleet with 4+ instance types reduces Spot interruptions for broker nodes.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-4-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"489\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Kinesis &amp;rarr; Firehose delivery&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Kinesis Firehose buffers and delivers to S3 with zero code. 7-day retention at 20 shards costs $332/mo in extended mode.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-5-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"587\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Both land in S3&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Lambda writes processed events to S3. Firehose delivers raw stream to S3. Both feed Athena and Glue for batch analytics.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>"}</script>
+
+          <details class="diagram-interactive">
+            <summary>INTERACTIVE DIAGRAM — zoom &amp; pan</summary>
+            <div class="mxgraph-wrap">
+              <div id="kafka-mxgraph" class="mxgraph" style="max-width:100%;"></div>
+            </div>
+          </details>
+          <script>
+            (function () {
+              var det = document.querySelector('.diagram-interactive');
+              if (!det) return;
+              det.addEventListener('toggle', function () {
+                if (det.open && !window.__drawioViewerLoaded) {
+                  window.__drawioViewerLoaded = true;
+                  var cfg = document.getElementById('kafka-diagram-data').textContent;
+                  document.getElementById('kafka-mxgraph').setAttribute('data-mxgraph', cfg);
+                  var s = document.createElement('script');
+                  s.src = 'https://viewer.diagrams.net/js/viewer.min.js';
+                  document.head.appendChild(s);
+                }
+              });
+            })();
+          </script>
+
+        </div>
+
+      <h2>Retention: the hidden Kinesis constraint</h2>
+      <p>Kinesis default retention is 24 hours. Extended retention (7 days) costs $0.023/shard-hour — at 20 shards that is $332/month just for retention extension. Long-term retention (up to 365 days) costs $0.00023/shard-hour per GB stored. MSK stores data as topic segments on EBS — you pay $0.10/GB-month for EBS storage and set retention by size or time without an additional API charge. For compliance pipelines needing 90-day retention, MSK storage cost is dramatically lower.</p>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>Kinesis shard limits are regional. The default shard limit is 500 per account per region. At 1MB/s write per shard, 500 shards = 500MB/s = 43TB/day capacity. Most teams never hit this. But if you're aggregating events from multiple sources into a single stream and scaling fast, request a limit increase proactively — the increase takes 24 hours to process.</p>
+      </div>
+
+      <h2>The decision: use Kinesis when</h2>
+      <ul>
+        <li><strong>Fewer than 3 consumer applications</strong> reading the same stream</li>
+        <li><strong>Retention under 7 days</strong> and no compliance requirement for longer</li>
+        <li><strong>No dedicated Kafka expertise</strong> on the team — MSK still requires Kafka operational knowledge</li>
+        <li><strong>Lambda as the consumer</strong> — KDS → Lambda ESM integration is first-class, Kafka → Lambda requires MSK trigger configuration</li>
+        <li><strong>AWS-only ecosystem</strong> — Kinesis integrates natively with Firehose, Analytics, and Lambda without connectors</li>
+      </ul>
+
+      <p>Use MSK when: you have multiple consumer groups, retention requirements beyond 7 days, existing Kafka Connect connectors you need to reuse, or you need topic-level throughput that does not scale with consumer count.</p>
+
+      <pre><code class="language-hcl">resource "aws_msk_cluster" "events" {
+  cluster_name           = "events-streaming"
+  kafka_version          = "3.5.1"
+  number_of_broker_nodes = 3
+
+  broker_node_group_info {
+    instance_type = "kafka.m5.large"
+    client_subnets = [
+      aws_subnet.private_a.id,
+      aws_subnet.private_b.id,
+      aws_subnet.private_c.id
+    ]
+    storage_info {
+      ebs_storage_info { volume_size = 1000 }  # 1TB per broker
+    }
+  }
+
+  encryption_info {
+    encryption_in_transit { client_broker = "TLS" }
+  }
+
+  configuration_info {
+    arn      = aws_msk_configuration.events.arn
+    revision = 1
+  }
+}</code></pre>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

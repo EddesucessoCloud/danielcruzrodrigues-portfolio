@@ -1,0 +1,58 @@
+digraph "AWS Kinesis Real-Time Streaming Architecture" {
+	graph [bgcolor="#080e1c" fontcolor="#e8edf3" fontname=Inter fontsize=13 label="AWS Kinesis Real-Time Streaming Architecture" nodesep=0.55 pad=0.6 rankdir=LR ranksep=1.0 splines=ortho]
+	node [color="#5bbad5" fillcolor="#0d1829" fixedsize=true fontcolor="#e8edf3" fontname=Inter fontsize=11 height=1.4 imagescale=true labelloc=b shape=box style=filled width=1.4]
+	edge [color="#5bbad5" fontcolor="#b8c7d4" fontname=Inter fontsize=9 penwidth=1.5]
+	subgraph "cluster_Data Sources" {
+		graph [bgcolor="#0a1120" color="#5bbad5" fontcolor="#5bbad5" fontname="Sans-Serif" fontsize=12 label="Data Sources" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"5de70eb37c384238ab1bb8acee2da4f9" [label="IoT / Sensors
+MQTT · HTTP" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/iot\iot-core.png" shape=none]
+		f58bcc831d8a43969976bfe642705d40 [label="Clickstream
+SDK · API GW" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/onprem/client\users.png" shape=none]
+		af90053dc09c4fb1bc18c670449f4615 [label="App Events
+PutRecord API" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/mobile\api-gateway.png" shape=none]
+		"0f13d3060c924c898e65438b84604b88" [label="CDC / DMS
+DB Changes" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\glue.png" shape=none]
+	}
+	"12eda4f9134a4cba80a6f163c820679c" [label="Kinesis
+Data Streams" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\kinesis-data-streams.png" shape=none]
+	subgraph "cluster_Hot Path  p99 < 500 ms" {
+		graph [bgcolor="#081a12" color="#10d5a0" fontcolor="#10d5a0" fontname="Sans-Serif" fontsize=12 label="Hot Path  p99 < 500 ms" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"2929b61265804628bf60e3a63b717e86" [label="Lambda ESM
+partial batch fail" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/compute\lambda.png" shape=none]
+		"08312141afb54f12b38f7c63e1cb2d6a" [label="DynamoDB
+real-time store" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/database\dynamodb.png" shape=none]
+		fe1bb89f4f5e45c8be08c4963490a5d5 [label="DLQ
+poison-pill" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/integration\simple-queue-service-sqs.png" shape=none]
+	}
+	subgraph "cluster_Warm Path  1 – 15 min" {
+		graph [bgcolor="#1a1300" color="#f59e0b" fontcolor="#f59e0b" fontname="Sans-Serif" fontsize=12 label="Warm Path  1 – 15 min" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		e49d98ea8fe74e5088c950278b8b26dd [label="Kinesis
+Firehose" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\kinesis-data-firehose.png" shape=none]
+		"892af44c8290436391d92eda991ac2dd" [label="S3 Bronze
+dynamic partition" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/storage\simple-storage-service-s3.png" shape=none]
+		dc5a2a9724a14662977d883b13895c73 [label="Glue / EMR
+silver transform" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\glue.png" shape=none]
+	}
+	subgraph "cluster_Analytical Path  near-real-time" {
+		graph [bgcolor="#0d0a1a" color="#a78bfa" fontcolor="#a78bfa" fontname="Sans-Serif" fontsize=12 label="Analytical Path  near-real-time" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		fb9c3d702cd041e896f1697b3d40fb7e [label="KDA / Flink
+windowed agg" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\kinesis-data-analytics.png" shape=none]
+		"01c5317d46da4bd08078fef9925584b0" [label="Redshift
+OLAP queries" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\redshift.png" shape=none]
+		"02032b5b23f24f1d9be6415b890fb13d" [label="OpenSearch
+dashboards" height=2.3 image="C:\Users\KABUM\AppData\Local\Programs\Python\Python313\Lib\site-packages\resources/aws/analytics\amazon-opensearch-service.png" shape=none]
+	}
+	"5de70eb37c384238ab1bb8acee2da4f9" -> "12eda4f9134a4cba80a6f163c820679c" [color="#5bbad5" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=1.5]
+	f58bcc831d8a43969976bfe642705d40 -> "12eda4f9134a4cba80a6f163c820679c" [color="#5bbad5" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=1.5]
+	af90053dc09c4fb1bc18c670449f4615 -> "12eda4f9134a4cba80a6f163c820679c" [color="#5bbad5" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=1.5]
+	"0f13d3060c924c898e65438b84604b88" -> "12eda4f9134a4cba80a6f163c820679c" [color="#5bbad5" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=1.5]
+	"12eda4f9134a4cba80a6f163c820679c" -> "2929b61265804628bf60e3a63b717e86" [color="#10d5a0" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	"2929b61265804628bf60e3a63b717e86" -> "08312141afb54f12b38f7c63e1cb2d6a" [color="#10d5a0" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	"2929b61265804628bf60e3a63b717e86" -> fe1bb89f4f5e45c8be08c4963490a5d5 [color="#f87171" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=1.2 style=dashed]
+	"12eda4f9134a4cba80a6f163c820679c" -> e49d98ea8fe74e5088c950278b8b26dd [color="#f59e0b" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	e49d98ea8fe74e5088c950278b8b26dd -> "892af44c8290436391d92eda991ac2dd" [color="#f59e0b" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	"892af44c8290436391d92eda991ac2dd" -> dc5a2a9724a14662977d883b13895c73 [color="#f59e0b" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	"12eda4f9134a4cba80a6f163c820679c" -> fb9c3d702cd041e896f1697b3d40fb7e [color="#a78bfa" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	fb9c3d702cd041e896f1697b3d40fb7e -> "01c5317d46da4bd08078fef9925584b0" [color="#a78bfa" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+	fb9c3d702cd041e896f1697b3d40fb7e -> "02032b5b23f24f1d9be6415b890fb13d" [color="#a78bfa" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2.0]
+}

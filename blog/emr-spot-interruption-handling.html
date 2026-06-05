@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EMR Spot Instance Interruption Handling at Scale | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="How to handle EC2 Spot interruptions in Amazon EMR production workloads. Covers YARN checkpoint, shuffle service, instance fleet strategies, and the 2-minute interruption notice window." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/emr-spot-interruption-handling.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="EMR Spot Instance Interruption Handling at Scale" />
+  <meta property="og:description" content="How to handle EC2 Spot interruptions in Amazon EMR production workloads. Covers YARN checkpoint, shuffle service, instance fleet strategies, and the 2-minute interruption notice window." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/emr-spot-interruption-handling.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "EMR Spot Instance Interruption Handling at Scale",
+    "description": "How to handle EC2 Spot interruptions in Amazon EMR production workloads. Covers YARN checkpoint, shuffle service, instance fleet strategies, and the 2-minute interruption notice window.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/emr-spot-interruption-handling.html",
+    "keywords": ["Amazon EMR", "EC2 Spot instances", "Spot interruption", "YARN", "Apache Spark", "cost optimization", "data engineering", "AWS"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .table-wrap{overflow-x:auto;margin:1.5rem 0;}
+    table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+    th{background:rgba(255,255,255,0.04);color:var(--text-primary);font-weight:600;text-align:left;padding:0.6rem 0.875rem;border-bottom:1px solid var(--border);}
+    td{padding:0.55rem 0.875rem;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top;}tr:last-child td{border-bottom:none;}td strong{color:var(--text-primary);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+
+    /* -- Diagram -- */
+    .diagram-interactive {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .diagram-interactive summary {
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: 'B6 '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: 'BC '; }
+    .diagram-interactive .mxgraph-wrap {
+      padding: 0.5rem;
+      background: #ffffff;
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 13 min read</span>
+        <span class="tag">Amazon EMR</span>
+        <span class="tag tag-green">Spot Instances</span>
+        <span class="tag tag-amber">Cost Optimization</span>
+      </div>
+
+      <h1>EMR Spot Instance Interruption Handling at Scale</h1>
+
+      <h2>The 4-hour Spark job that restarted from zero</h2>
+      <p>We were running a daily data enrichment job on an EMR cluster with 80 Spot r5.4xlarge core nodes — saving 70% vs On-Demand. At hour 3.5 of a 4-hour job, a Spot capacity reclamation hit 23 nodes simultaneously. YARN decommissioned them. Spark rescheduled the tasks onto the remaining nodes. The problem: the shuffle data for stages 8 through 14 lived on the terminated nodes' local NVMe disks. Spark had to re-execute those entire stages from the last checkpoint. The job added 2 hours of execution time. We had the savings math right but the failure recovery math wrong.</p>
+
+      <h2>The 2-minute window: what you can and cannot do</h2>
+      <p>AWS sends a Spot interruption notice 2 minutes before termination via EC2 instance metadata and EventBridge. <strong>Two minutes is not enough time to complete meaningful work</strong> on a data engineering task. A Spark shuffle write for a 100GB partition takes 4–8 minutes. Checkpoint a DynamoDB watermark: 0.3 seconds. The correct response to an interruption notice is not "try to finish the task" — it is "signal YARN to decommission gracefully and let Spark's task retry mechanism handle it."</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ Interruption notice flow</div>
+        <p>EC2 publishes interruption notice → EventBridge catches it (rule: <code>EC2 Spot Instance Interruption Warning</code>) → Lambda calls EMR API to decommission the node → YARN begins graceful decommission → tasks are rescheduled to healthy nodes → interrupted node stops accepting new tasks. The 2-minute window covers steps 1–3 (about 30 seconds total if automation is in place).</p>
+      </div>
+
+      <h2>Instance fleet vs uniform instance group</h2>
+      <p>The most important architectural decision for Spot EMR is choosing <strong>EMR Instance Fleets</strong> over Uniform Instance Groups. Instance Fleets let you specify up to 5 instance types per fleet, and EMR automatically fulfills capacity from whichever Spot pools have availability. Uniform instance groups lock you into one instance type per group — when that Spot pool is reclaimed, the entire group is terminated simultaneously.</p>
+
+      <pre><code class="language-hcl">resource "aws_emr_cluster" "data_processing" {
+  name          = "daily-enrichment"
+  release_label = "emr-7.1.0"
+  applications  = ["Spark", "Hadoop"]
+
+  # Instance Fleet: EMR picks from multiple types, spreading Spot risk
+  master_instance_fleet {
+    name                      = "master"
+    target_on_demand_capacity = 1
+    instance_type_configs {
+      instance_type = "m5.xlarge"
+    }
+  }
+
+  core_instance_fleet {
+    name                      = "core"
+    target_on_demand_capacity = 2   # 2 On-Demand as fallback anchor
+    target_spot_capacity      = 20  # 20 Spot = ~82% savings
+
+    instance_type_configs {
+      instance_type     = "r5.4xlarge"
+      weighted_capacity = 1
+      bid_price_as_percentage_of_on_demand_price = 100  # Pay up to On-Demand
+    }
+    instance_type_configs {
+      instance_type     = "r5a.4xlarge"
+      weighted_capacity = 1
+      bid_price_as_percentage_of_on_demand_price = 100
+    }
+    instance_type_configs {
+      instance_type     = "r5d.4xlarge"
+      weighted_capacity = 1
+      bid_price_as_percentage_of_on_demand_price = 100
+    }
+    instance_type_configs {
+      instance_type     = "r6i.4xlarge"
+      weighted_capacity = 1
+      bid_price_as_percentage_of_on_demand_price = 100
+    }
+
+    launch_specifications {
+      spot_specification {
+        timeout_action           = "SWITCH_TO_ON_DEMAND"
+        timeout_duration_minutes = 10
+        allocation_strategy      = "capacity-optimized"
+      }
+    }
+  }
+}</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>The <code>capacity-optimized</code> allocation strategy picks instances from the Spot pool with the most available capacity — minimizing interruption probability. The <code>lowest-price</code> strategy (old default) picks the cheapest pool regardless of depth, resulting in 2–3× higher interruption rates in congested regions. Always use <code>capacity-optimized</code> for production EMR.</p>
+      </div>
+
+      <h2>The shuffle service: making Spot tolerable for Spark</h2>
+      <p>When a Spark executor is terminated mid-shuffle, all downstream tasks that needed its shuffle output fail with <code>FetchFailedException</code>. Without mitigation, Spark retries those tasks 4 times (default) and then fails the stage. The fix is <strong>External Shuffle Service (ESS)</strong> — shuffle data is served by a daemon running on the node itself, separate from the executor process. When the executor dies, the ESS continues serving its shuffle data to other executors for a configurable retention period.</p>
+
+      <pre><code class="language-json">[{
+  "Classification": "spark",
+  "Properties": {
+    "maximizeResourceAllocation": "true"
+  }
+}, {
+  "Classification": "spark-defaults",
+  "Properties": {
+    "spark.shuffle.service.enabled": "true",
+    "spark.dynamicAllocation.enabled": "true",
+    "spark.dynamicAllocation.shuffleTracking.enabled": "true",
+    "spark.speculation": "true",
+    "spark.speculation.threshold": "90s",
+    "spark.speculation.multiplier": "1.5",
+    "spark.task.maxFailures": "8",
+    "spark.yarn.maxAppAttempts": "2",
+    "spark.sql.shuffle.partitions": "400"
+  }
+}]</code></pre>
+
+      <h2>Architecture: Spot-resilient EMR pipeline</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// EMR Spot interruption handling — fleet, ESS, and EventBridge automation</p>
+        <img src="images/emr-spot-interruption-handling-architecture.png"
+             alt="Amazon EMR Spot instance interruption handling architecture with Instance Fleet, External Shuffle Service, and EventBridge automation"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+
+          <!-- diagram XML: raw text in script tag avoids HTML entity processing -->
+          <script id="emr-diagram-data" type="application/json">{"nav": true, "resize": true, "toolbar": "zoom layers lightbox", "edit": "_blank", "xml": "<mxfile host=\"Electron\" version=\"29.6.1\">\n  <diagram name=\"Page-1\" id=\"diagram-1\">\n    <mxGraphModel dx=\"1200\" dy=\"800\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"0\" pageScale=\"1\" pageWidth=\"2250\" pageHeight=\"900\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n\n        <!-- Title block -->\n        <mxCell id=\"title-group\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"83\" width=\"1460\" x=\"50\" y=\"30\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-text\" style=\"text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;\" value=\"EMR Spot Interruption Handling \u2014 2-Minute Graceful Decommission\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"42\" width=\"1100\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"subtitle-text\" style=\"text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;\" value=\"Instance Fleet vs Uniform Group, External Shuffle Service, EventBridge Lambda decommission, 55-65% Spot savings\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"25\" width=\"1100\" x=\"5\" y=\"40\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-separator\" style=\"line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"10\" width=\"1450\" x=\"5\" y=\"70\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- AWS Cloud boundary -->\n        <mxCell id=\"aws-cloud\" style=\"points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);fillStyle=auto;verticalAlign=top;align=center;spacingTop=25;fontStyle=1;fontSize=14;fontColor=#232F3E;dashed=0;container=0;fontFamily=Helvetica;\" value=\"AWS Cloud\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"50\" y=\"140\" width=\"1460\" height=\"540\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- EMR Cluster -->\n        <mxCell id=\"svc-group-emr\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"120\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-emr\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.emr;fontFamily=Helvetica;shadow=1;\" value=\"Amazon EMR&lt;div&gt;&lt;i&gt;Instance Fleet + Spot tasks&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-emr\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- EC2 Spot (task nodes) -->\n        <mxCell id=\"svc-group-ec2\" style=\"fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Compute\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"400\" y=\"180\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-ec2\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fontFamily=Helvetica;shadow=1;\" value=\"EC2 Spot Tasks&lt;div&gt;&lt;i&gt;4+ instance types, capacity-opt&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-ec2\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- EventBridge (interruption notice) -->\n        <mxCell id=\"svc-group-eb\" style=\"fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"App Integration\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"400\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-eb\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;fontFamily=Helvetica;shadow=1;\" value=\"Amazon EventBridge&lt;div&gt;&lt;i&gt;Spot interruption notice&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-eb\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Lambda (graceful decommission) -->\n        <mxCell id=\"svc-group-lambda\" style=\"fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Compute\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-lambda\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fontFamily=Helvetica;shadow=1;\" value=\"AWS Lambda&lt;div&gt;&lt;i&gt;decommission within 2 min&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-lambda\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 shuffle / output -->\n        <mxCell id=\"svc-group-s3\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"210\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;shuffle + job output&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- CloudWatch auxiliary -->\n        <mxCell id=\"aux-group\" style=\"dashed=1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;strokeColor=#666666;fillColor=#F5F5F5;\" value=\"Auxiliary Services\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1250\" y=\"540\" width=\"200\" height=\"110\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-cw\" style=\"sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch_2;fontFamily=Helvetica;\" value=\"CloudWatch&lt;div&gt;&lt;i&gt;Spot savings metrics&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"aux-group\">\n          <mxGeometry x=\"76\" y=\"25\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Edges -->\n        <mxCell id=\"edge-emr-ec2\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#8C4FFF;\" edge=\"1\" parent=\"1\" source=\"svc-emr\" target=\"svc-ec2\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-emr-ec2-label\" value=\"Spot task nodes\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-emr-ec2\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-emr-eb\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-emr\" target=\"svc-eb\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-ec2-s3\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#ED7100;\" edge=\"1\" parent=\"1\" source=\"svc-ec2\" target=\"svc-s3\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-ec2-s3-label\" value=\"External Shuffle Service\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-ec2-s3\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-eb-lambda\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E7157B;\" edge=\"1\" parent=\"1\" source=\"svc-eb\" target=\"svc-lambda\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-eb-lambda-label\" value=\"2-min window\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-eb-lambda\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-lambda-emr\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#ED7100;dashed=1;\" edge=\"1\" parent=\"1\" source=\"svc-lambda\" target=\"svc-emr\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-lambda-emr-label\" value=\"decommission node\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-lambda-emr\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <!-- Step badges -->\n        <mxCell id=\"badge-1\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"295\" y=\"263\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-2\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"555\" y=\"253\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-3\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"295\" y=\"483\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-4\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"555\" y=\"483\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-5\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"770\" y=\"425\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Legend panel -->\n        <mxCell id=\"legend-bg\" style=\"verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"540\" width=\"650\" x=\"1560\" y=\"140\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontStyle=1;labelBackgroundColor=none;fontFamily=Helvetica;\" value=\"Architecture Steps\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1590\" y=\"158\" width=\"300\" height=\"25\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-1-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"195\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;EMR provisions Spot task nodes&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Instance Fleet uses 4+ instance types with capacity-optimized allocation. Reduces interruption rate vs single instance type.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-2-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"293\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;External Shuffle Service writes S3&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;spark.shuffle.service.enabled=true offloads shuffle to persistent S3. Task node loss does not lose shuffle data, enabling safe restart.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-3-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"391\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;EventBridge spots interruption&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;AWS publishes EC2 Spot Interruption Warning 2 minutes before reclaim. EventBridge rule matches and triggers Lambda handler.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-4-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"489\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Lambda gracefully decommissions&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Lambda calls ModifyInstanceGroups to mark node for decommission. EMR moves tasks to remaining nodes before EC2 reclaims the instance.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-5-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"587\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Node removed, job continues&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Cluster retries only task-level failures. On-Demand Master + 2 Core + Spot Task nodes achieve 55-65% savings vs all On-Demand.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>"}</script>
+
+          <details class="diagram-interactive">
+            <summary>INTERACTIVE DIAGRAM — zoom &amp; pan</summary>
+            <div class="mxgraph-wrap">
+              <div id="emr-mxgraph" class="mxgraph" style="max-width:100%;"></div>
+            </div>
+          </details>
+          <script>
+            (function () {
+              var det = document.querySelector('.diagram-interactive');
+              if (!det) return;
+              det.addEventListener('toggle', function () {
+                if (det.open && !window.__drawioViewerLoaded) {
+                  window.__drawioViewerLoaded = true;
+                  var cfg = document.getElementById('emr-diagram-data').textContent;
+                  document.getElementById('emr-mxgraph').setAttribute('data-mxgraph', cfg);
+                  var s = document.createElement('script');
+                  s.src = 'https://viewer.diagrams.net/js/viewer.min.js';
+                  document.head.appendChild(s);
+                }
+              });
+            })();
+          </script>
+
+        </div>
+
+      <h2>EventBridge automation for graceful decommission</h2>
+      <pre><code class="language-python">import boto3
+import json
+
+emr = boto3.client('emr', region_name='us-east-1')
+
+def handle_spot_interruption(event, context):
+    """
+    Triggered by EventBridge rule on EC2 Spot interruption notice.
+    Marks the node for decommission before YARN loses connection to it.
+    """
+    instance_id = event['detail']['instance-id']
+
+    # Find the EMR cluster and instance group for this EC2 instance
+    clusters = emr.list_clusters(ClusterStates=['RUNNING'])['Clusters']
+    for cluster in clusters:
+        instances = emr.list_instances(
+            ClusterId=cluster['Id'],
+            InstanceGroupTypes=['CORE', 'TASK']
+        )['Instances']
+
+        for inst in instances:
+            if inst['Ec2InstanceId'] == instance_id:
+                # Mark instance for decommission — YARN stops sending new tasks
+                emr.modify_instance_groups(
+                    ClusterId=cluster['Id'],
+                    InstanceGroups=[{
+                        'InstanceGroupId': inst['InstanceGroupId'],
+                        'EC2InstanceIdsToTerminate': [instance_id]
+                    }]
+                )
+                print(f"Decommissioning {instance_id} from cluster {cluster['Id']}")
+                return {'status': 'decommissioning', 'instance': instance_id}
+
+    return {'status': 'not_found', 'instance': instance_id}</code></pre>
+
+      <h2>Cost vs reliability: the Spot ratio sweet spot</h2>
+      <p>The safest Spot configuration for batch ETL is <strong>2 On-Demand core nodes + N Spot task nodes</strong>. On-Demand cores hold the HDFS replication quorum (minimum 2 replicas). Spot task nodes process data but do not store it — their termination causes task retry, not data loss. With this split, even a 50% Spot interruption event results in task reruns, not job failure. On-Demand task nodes at 90th-percentile interruption scenarios add at most 15% to the On-Demand cost of a pure On-Demand cluster — you keep 70–85% of the Spot savings in practice.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Configuration</th><th>Spot ratio</th><th>Interruption risk</th><th>Savings vs On-Demand</th></tr></thead>
+          <tbody>
+            <tr><td>All On-Demand</td><td>0%</td><td>Zero</td><td>0%</td></tr>
+            <tr><td>On-Demand Master + Core, Spot Task</td><td>60–70%</td><td>Task retry only</td><td>45–55%</td></tr>
+            <tr><td>On-Demand Master, Spot Core + Task</td><td>80–90%</td><td>Shuffle fetch failures</td><td>60–75%</td></tr>
+            <tr><td>All Spot (including Master)</td><td>95%+</td><td>Cluster termination possible</td><td>70–80%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>For production batch jobs with SLA requirements: On-Demand Master, 2 On-Demand Core nodes, Spot Task nodes with instance fleet across 4+ types. This gives 55–65% cost savings with interruption risk limited to task-level retries only.</p>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

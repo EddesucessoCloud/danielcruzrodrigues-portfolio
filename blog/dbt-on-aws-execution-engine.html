@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dbt on AWS: Choosing the Right Execution Engine (Glue vs Redshift vs Athena) | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="How to pick the right AWS execution engine for dbt: Glue Spark vs Redshift vs Athena. Real performance numbers, cost comparison, and when each engine fails in production." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/dbt-on-aws-execution-engine.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="dbt on AWS: Choosing the Right Execution Engine (Glue vs Redshift vs Athena)" />
+  <meta property="og:description" content="How to pick the right AWS execution engine for dbt: Glue Spark vs Redshift vs Athena. Real performance numbers, cost comparison, and when each engine fails in production." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/dbt-on-aws-execution-engine.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "dbt on AWS: Choosing the Right Execution Engine (Glue vs Redshift vs Athena)",
+    "description": "How to pick the right AWS execution engine for dbt: Glue Spark vs Redshift vs Athena. Real performance numbers, cost comparison, and when each engine fails in production.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/dbt-on-aws-execution-engine.html",
+    "keywords": ["dbt", "AWS Glue", "Amazon Redshift", "Amazon Athena", "dbt-glue", "dbt-redshift", "dbt-athena", "data engineering", "data transformation"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:rgba(255,255,255,0.08);--text-primary:#e6edf3;--text-dim:#8b949e;--text-muted:#6e7681;--accent-cyan:#5bbad5;--accent-green:#10d5a0;--accent-amber:#f59e0b;--font:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:0.2s ease;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text-primary);font-family:var(--font);font-size:16px;line-height:1.7;}
+    a{color:var(--accent-cyan);text-decoration:none;transition:color var(--transition);}a:hover{color:#fff;text-decoration:underline;}
+    code{font-family:var(--font-mono);font-size:0.85em;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:var(--radius-sm);}
+    pre{background:#0d1117;border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;margin:1.5rem 0;}
+    pre code{background:none;padding:0;font-size:0.875rem;line-height:1.6;}
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(8px);z-index:100;}
+    .logo{font-family:var(--font-mono);font-weight:800;font-size:0.9rem;letter-spacing:0.1em;color:var(--accent-cyan);}
+    nav{display:flex;gap:1.5rem;}nav a{font-size:0.875rem;color:var(--text-dim);}nav a:hover{color:var(--text-primary);text-decoration:none;}
+    .article-wrap{max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;line-height:1.2;margin-bottom:1rem;}
+    h2{font-size:1.35rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text-primary);border-left:3px solid var(--accent-cyan);padding-left:0.75rem;}
+    h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 0.5rem;color:var(--accent-green);}
+    p{margin-bottom:1rem;color:var(--text-dim);}p strong{color:var(--text-primary);}
+    ul,ol{margin:0.75rem 0 1rem 1.5rem;color:var(--text-dim);}li{margin-bottom:0.35rem;}li strong{color:var(--text-primary);}
+    .post-meta{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:2rem;font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);}
+    .tag{background:rgba(91,186,213,0.1);border:1px solid rgba(91,186,213,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;}
+    .tag-green{background:rgba(16,213,160,0.1);border-color:rgba(16,213,160,0.25);color:var(--accent-green);}
+    .tag-amber{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--accent-amber);}
+    .callout{border-radius:var(--radius-md);padding:1rem 1.25rem;margin:1.5rem 0;border:1px solid;}
+    .callout-info{background:rgba(91,186,213,0.06);border-color:rgba(91,186,213,0.2);}
+    .callout-warn{background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2);}
+    .callout-tip{background:rgba(16,213,160,0.06);border-color:rgba(16,213,160,0.2);}
+    .callout-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.35rem;}
+    .callout-info .callout-label{color:var(--accent-cyan);}.callout-warn .callout-label{color:var(--accent-amber);}.callout-tip .callout-label{color:var(--accent-green);}
+    .table-wrap{overflow-x:auto;margin:1.5rem 0;}
+    table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+    th{background:rgba(255,255,255,0.04);color:var(--text-primary);font-weight:600;text-align:left;padding:0.6rem 0.875rem;border-bottom:1px solid var(--border);}
+    td{padding:0.55rem 0.875rem;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top;}tr:last-child td{border-bottom:none;}td strong{color:var(--text-primary);}
+    .diagram-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.5rem;margin:2rem 0;overflow-x:auto;}
+    .diagram-label{font-family:var(--font-mono);font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;}
+    .back-link{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.875rem;color:var(--text-muted);margin-bottom:2rem;transition:color 150ms;}
+    .back-link:hover{color:var(--accent-cyan);text-decoration:none;}
+    .site-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.8125rem;}
+    .site-footer a{color:var(--text-muted);}.site-footer a:hover{color:var(--accent-cyan);}
+
+    /* -- Diagram -- */
+    .diagram-interactive {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .diagram-interactive summary {
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: 'B6 '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: 'BC '; }
+    .diagram-interactive .mxgraph-wrap {
+      padding: 0.5rem;
+      background: #ffffff;
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        <span class="tag">dbt</span>
+        <span class="tag tag-green">Data Transformation</span>
+        <span class="tag tag-amber">AWS</span>
+      </div>
+
+      <h1>dbt on AWS: Choosing the Right Execution Engine (Glue vs Redshift vs Athena)</h1>
+
+      <h2>The dbt-glue job that took 4 hours to do what dbt-redshift did in 12 minutes</h2>
+      <p>A team migrated their dbt project from dbt-redshift to dbt-glue, expecting to save money and gain Spark's processing power. Their flagship model was a 60-table DAG producing a 500M-row fact table. On Redshift, the full run took 12 minutes. On Glue Spark with the same data, it took 4 hours — 5 minutes of actual computation and 3 hours 55 minutes of Glue job startup, Spark session initialization, and data format conversion overhead. They switched back. The lesson: dbt-glue is not "dbt but faster." It is a fundamentally different tool with different cost and performance characteristics.</p>
+
+      <h2>The three adapters and what they actually do</h2>
+      <p><strong>dbt-redshift</strong> compiles SQL models into Redshift SQL and runs them via psycopg2. <strong>dbt-athena</strong> submits SQL to Athena Query Execution API and writes results to S3 as Parquet. <strong>dbt-glue</strong> converts SQL models to PySpark DataFrames and runs them inside a Glue Interactive Session or Glue Job. The execution model matters: Redshift and Athena are SQL push-down engines — your SQL runs natively. Glue converts it, introducing overhead and a different optimizer.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ Startup cost reality</div>
+        <p>Athena: 2–5 second query startup. Redshift: 0 seconds (connected session, persistent cluster). Glue Interactive Session: 45–90 second warm-up per session. Glue Job: 3–8 minutes for Spark cluster initialization. For a dbt project with 80 models, Glue startup time alone adds 4–10 minutes to every run even if models themselves execute instantly.</p>
+      </div>
+
+      <h2>dbt-athena: the best fit for a data lake</h2>
+      <p><strong>dbt-athena</strong> is the right choice when your data lives in S3 and you need dbt's modeling layer without a persistent compute cluster. Each model runs as an Athena query — you pay $5/TB scanned. For a project with 50 models each scanning 10GB (columnar, partitioned), a full run costs 50 × 0.01TB × $5 = $2.50. There is no cluster to provision, no idle cost, and models can be parallelized across Athena's default 20 concurrent query limit.</p>
+
+      <pre><code class="language-yaml"># profiles.yml — dbt-athena configuration
+your_project:
+  target: prod
+  outputs:
+    prod:
+      type: athena
+      s3_staging_dir: s3://your-datalake/athena-results/
+      region_name: us-east-1
+      database: dbt_prod
+      schema: analytics
+      work_group: dbt-workgroup          # Use a named workgroup for cost tracking
+      num_retries: 3
+      s3_data_dir: s3://your-datalake/dbt/
+      s3_data_naming: uuid               # prevents table conflicts on concurrent runs
+      lf_tags_database:                  # Optional Lake Formation tags
+        team: analytics
+        environment: prod</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>dbt-athena materializations write intermediate results to S3. Incremental models on large tables can accumulate S3 objects rapidly — each run appends new Parquet files without compaction. After 30 days of daily incremental runs on a 1B-row table, you may have 720 small files. Add a periodic <code>OPTIMIZE</code> or compaction step (EMR or Athena CTAS) to maintain query performance.</p>
+      </div>
+
+      <h2>dbt-redshift: the fastest SQL transformation on AWS</h2>
+      <p><strong>dbt-redshift</strong> is unambiguously the fastest option for SQL-based transformations when your data is in Redshift. Redshift's massively parallel query engine handles complex multi-join aggregations across 500M rows in 30–120 seconds. You get Redshift's distribution and sort key optimization, materialized views, and late-binding views for free. The limitation: your data must be in Redshift. Transformations that read from S3 (Spectrum) add latency and cost.</p>
+
+      <pre><code class="language-yaml"># profiles.yml — dbt-redshift
+your_project:
+  target: prod
+  outputs:
+    prod:
+      type: redshift
+      host: "{{ env_var('REDSHIFT_HOST') }}"
+      port: 5439
+      user: dbt_user
+      password: "{{ env_var('REDSHIFT_PASSWORD') }}"
+      dbname: analytics
+      schema: dbt_prod
+      threads: 8
+      keepalives_idle: 240
+      connect_timeout: 10</code></pre>
+
+      <pre><code class="language-sql">-- dbt model: optimized for Redshift distribution
+-- models/fct_orders.sql
+{{
+  config(
+    materialized='incremental',
+    unique_key='order_id',
+    dist='customer_id',        -- distribute on join key
+    sort=['order_date', 'region'],  -- compound sort key for time-based filters
+    incremental_strategy='delete+insert'
+  )
+}}
+
+SELECT
+  o.order_id,
+  o.customer_id,
+  o.order_date,
+  o.region,
+  SUM(li.quantity * li.unit_price) AS order_total
+FROM {{ ref('stg_orders') }} o
+JOIN {{ ref('stg_line_items') }} li USING (order_id)
+{% if is_incremental() %}
+WHERE o.order_date >= (SELECT MAX(order_date) FROM {{ this }})
+{% endif %}
+GROUP BY 1, 2, 3, 4</code></pre>
+
+      <h2>dbt-glue: when it actually makes sense</h2>
+      <p><strong>dbt-glue</strong> is the right choice in exactly two scenarios: (1) your source data is in formats that Redshift and Athena cannot efficiently read (Delta Lake, Hudi, Iceberg with compaction requirements), or (2) you need Spark's processing model for window functions on multi-terabyte datasets where Athena times out and Redshift Spectrum is too slow. Outside these cases, dbt-glue adds complexity and cost without benefit.</p>
+
+      <pre><code class="language-yaml"># profiles.yml — dbt-glue
+your_project:
+  target: prod
+  outputs:
+    prod:
+      type: glue
+      role_arn: arn:aws:iam::123456789012:role/GlueDbtRole
+      region: us-east-1
+      workers: 10
+      worker_type: G.1X
+      schema: dbt_prod
+      database: analytics
+      session_provisioning_timeout_in_seconds: 120
+      datalake_formats: iceberg   # enables Iceberg writes
+      conf: >
+        spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+        spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog
+        spark.sql.catalog.glue_catalog.warehouse=s3://your-datalake/warehouse</code></pre>
+
+      <h2>Architecture: dbt engine selection by data location</h2>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// dbt on AWS — execution engine selection by data location and scale</p>
+        <img src="images/dbt-on-aws-execution-engine-architecture.png"
+             alt="dbt on AWS architecture showing Glue Spark, Redshift, and Athena execution engine selection based on data location and transformation requirements"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+
+          <!-- diagram XML: raw text in script tag avoids HTML entity processing -->
+          <script id="dbt-diagram-data" type="application/json">{"nav": true, "resize": true, "toolbar": "zoom layers lightbox", "edit": "_blank", "xml": "<mxfile host=\"Electron\" version=\"29.6.1\">\n  <diagram name=\"Page-1\" id=\"diagram-1\">\n    <mxGraphModel dx=\"1200\" dy=\"800\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"0\" pageScale=\"1\" pageWidth=\"2250\" pageHeight=\"900\" math=\"0\" shadow=\"0\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n\n        <!-- Title block -->\n        <mxCell id=\"title-group\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"83\" width=\"1460\" x=\"50\" y=\"30\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-text\" style=\"text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;\" value=\"dbt on AWS \u2014 Choosing the Right Execution Engine\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"42\" width=\"1000\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"subtitle-text\" style=\"text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;\" value=\"dbt-redshift (12 min) vs dbt-glue (4 hrs) vs dbt-athena ($2.50/run): adapter comparison at 500M rows\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"25\" width=\"1100\" x=\"5\" y=\"40\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"title-separator\" style=\"line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"title-group\">\n          <mxGeometry height=\"10\" width=\"1450\" x=\"5\" y=\"70\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- AWS Cloud boundary -->\n        <mxCell id=\"aws-cloud\" style=\"points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);fillStyle=auto;verticalAlign=top;align=center;spacingTop=25;fontStyle=1;fontSize=14;fontColor=#232F3E;dashed=0;container=0;fontFamily=Helvetica;\" value=\"AWS Cloud\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"50\" y=\"140\" width=\"1460\" height=\"540\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- dbt Core (CI/CD) -->\n        <mxCell id=\"users-container\" style=\"fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;\" value=\"dbt Core\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"80\" y=\"320\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"users-icon\" style=\"sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.traditional_server;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"users-container\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- S3 artifacts -->\n        <mxCell id=\"svc-group-s3\" style=\"fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Storage\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"360\" y=\"180\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-s3\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;\" value=\"Amazon S3&lt;div&gt;&lt;i&gt;models + compiled SQL&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-s3\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Redshift (dbt-redshift) -->\n        <mxCell id=\"svc-group-redshift\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"180\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-redshift\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.redshift;fontFamily=Helvetica;shadow=1;\" value=\"Redshift&lt;div&gt;&lt;i&gt;dbt-redshift: 12 min&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-redshift\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Athena (dbt-athena) -->\n        <mxCell id=\"svc-group-athena\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"360\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-athena\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.athena;fontFamily=Helvetica;shadow=1;\" value=\"Amazon Athena&lt;div&gt;&lt;i&gt;dbt-athena: $2.50/run&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-athena\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Glue (dbt-glue) -->\n        <mxCell id=\"svc-group-glue\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"680\" y=\"540\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-glue\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.glue;fontFamily=Helvetica;shadow=1;\" value=\"AWS Glue&lt;div&gt;&lt;i&gt;dbt-glue: 4 hr (Iceberg)&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-glue\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Glue Catalog -->\n        <mxCell id=\"svc-group-catalog\" style=\"fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;\" value=\"Analytics\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"360\" y=\"450\" width=\"120\" height=\"120\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"svc-catalog\" style=\"sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.glue_data_catalog;fontFamily=Helvetica;shadow=1;\" value=\"Glue Catalog&lt;div&gt;&lt;i&gt;shared schema registry&lt;/i&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"svc-group-catalog\">\n          <mxGeometry x=\"36\" y=\"30\" width=\"48\" height=\"48\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Edges -->\n        <mxCell id=\"edge-dbt-s3\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#3F8624;\" edge=\"1\" parent=\"1\" source=\"users-icon\" target=\"svc-s3\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-dbt-s3-label\" value=\"compiled SQL\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-dbt-s3\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-dbt-catalog\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#8C4FFF;\" edge=\"1\" parent=\"1\" source=\"users-icon\" target=\"svc-catalog\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-s3-redshift\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#3F8624;\" edge=\"1\" parent=\"1\" source=\"svc-s3\" target=\"svc-redshift\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"edge-s3-redshift-label\" value=\"COPY + SQL DDL\" style=\"edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;\" connectable=\"0\" vertex=\"1\" parent=\"edge-s3-redshift\">\n          <mxGeometry relative=\"1\" x=\"0\" y=\"-15\" as=\"geometry\"><mxPoint as=\"offset\" /></mxGeometry>\n        </mxCell>\n\n        <mxCell id=\"edge-catalog-athena\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#8C4FFF;\" edge=\"1\" parent=\"1\" source=\"svc-catalog\" target=\"svc-athena\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"edge-catalog-glue\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#8C4FFF;\" edge=\"1\" parent=\"1\" source=\"svc-catalog\" target=\"svc-glue\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Step badges -->\n        <mxCell id=\"badge-1\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"240\" y=\"253\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-2\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"240\" y=\"453\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-3\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"570\" y=\"233\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-4\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"570\" y=\"403\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"badge-5\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"570\" y=\"573\" width=\"28\" height=\"28\" as=\"geometry\" />\n        </mxCell>\n\n        <!-- Legend panel -->\n        <mxCell id=\"legend-bg\" style=\"verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"540\" width=\"650\" x=\"1560\" y=\"140\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"legend-title\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontStyle=1;labelBackgroundColor=none;fontFamily=Helvetica;\" value=\"Architecture Steps\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"1590\" y=\"158\" width=\"300\" height=\"25\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-1-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"195\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"1\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-1-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;dbt Core compiles SQL&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;dbt run compiles Jinja templates to SQL. Compiled artifacts stored in S3 for audit and rerun. Profile selects the adapter.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-1-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-2-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"293\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"2\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-2-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;Catalog schema resolution&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;dbt reads Glue Catalog for ref() resolution. All three adapters (Redshift, Athena, Glue) share the same catalog as source of truth.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-2-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-3-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"391\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"3\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-3-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;dbt-redshift fastest (12 min)&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Redshift in-cluster SQL runs 500M rows in 12 min. No startup time. Best for warehouse-centric marts with frequent runs.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-3-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-4-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"489\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"4\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-4-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;dbt-athena cost-effective&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;Athena serverless SQL: $0.40/TB scanned. 50 models x 10GB = $2.50/run. Best for S3 lake with infrequent runs.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-4-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n        <mxCell id=\"step-5-legend\" connectable=\"0\" style=\"group;fontFamily=Helvetica;\" value=\"\" vertex=\"1\" parent=\"1\">\n          <mxGeometry height=\"88\" width=\"600\" x=\"1580\" y=\"587\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-badge-legend\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;\" value=\"5\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"38\" width=\"40\" y=\"2\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"step-5-desc-legend\" style=\"text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;\" value=\"&lt;div&gt;&lt;b&gt;dbt-glue for Iceberg / Spark&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;dbt-glue uses Spark session (3-8 min startup). 4 hr for complex Iceberg transformations. Best for lakehouse with schema evolution.&lt;/span&gt;&lt;/div&gt;\" vertex=\"1\" parent=\"step-5-legend\">\n          <mxGeometry height=\"88\" width=\"548\" x=\"52\" as=\"geometry\" />\n        </mxCell>\n\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>"}</script>
+
+          <details class="diagram-interactive">
+            <summary>INTERACTIVE DIAGRAM — zoom &amp; pan</summary>
+            <div class="mxgraph-wrap">
+              <div id="dbt-mxgraph" class="mxgraph" style="max-width:100%;"></div>
+            </div>
+          </details>
+          <script>
+            (function () {
+              var det = document.querySelector('.diagram-interactive');
+              if (!det) return;
+              det.addEventListener('toggle', function () {
+                if (det.open && !window.__drawioViewerLoaded) {
+                  window.__drawioViewerLoaded = true;
+                  var cfg = document.getElementById('dbt-diagram-data').textContent;
+                  document.getElementById('dbt-mxgraph').setAttribute('data-mxgraph', cfg);
+                  var s = document.createElement('script');
+                  s.src = 'https://viewer.diagrams.net/js/viewer.min.js';
+                  document.head.appendChild(s);
+                }
+              });
+            })();
+          </script>
+
+        </div>
+
+      <h2>Performance comparison: same dbt project, three engines</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Engine</th><th>50-model run, 100GB input</th><th>Cold start</th><th>Cost per full run</th><th>Best for</th></tr></thead>
+          <tbody>
+            <tr><td><strong>dbt-redshift</strong></td><td>8–15 min</td><td>0 sec</td><td>Flat (cluster cost)</td><td>SQL transformations, low latency</td></tr>
+            <tr><td><strong>dbt-athena</strong></td><td>25–40 min</td><td>2–5 sec/query</td><td>~$2–8 at $5/TB</td><td>S3 data lake, no cluster needed</td></tr>
+            <tr><td><strong>dbt-glue</strong></td><td>45–120 min</td><td>3–8 min</td><td>$8–25 (G.1X × 10 workers)</td><td>Iceberg/Delta, complex Spark logic</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">✓ Decision rule</div>
+        <p>Use dbt-redshift if data is in Redshift. Use dbt-athena if data is in S3 as Parquet/ORC with Glue Catalog. Use dbt-glue only if you need Iceberg table format or have models that require Spark-specific capabilities (e.g., ML feature computation via Spark MLlib). There is no middle ground worth engineering.</p>
+      </div>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda. Open to senior data engineering roles internationally.</div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

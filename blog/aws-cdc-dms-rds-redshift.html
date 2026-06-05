@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CDC with AWS DMS: RDS to Redshift Real-Time Replication | Daniel Cruz Rodrigues</title>
+  <meta name="description" content="How to build a production CDC pipeline from RDS PostgreSQL to Redshift using AWS DMS. Covers replication lag, LOB columns, schema drift, and the configurations that actually matter." />
+  <meta name="author" content="Daniel Cruz Rodrigues" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://danielportfolio.eddesucesso.tech/blog/aws-cdc-dms-rds-redshift.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="CDC with AWS DMS: RDS to Redshift Real-Time Replication" />
+  <meta property="og:description" content="How to build a production CDC pipeline from RDS PostgreSQL to Redshift using AWS DMS. Covers replication lag, LOB columns, schema drift, and the configurations that actually matter." />
+  <meta property="og:url" content="https://danielportfolio.eddesucesso.tech/blog/aws-cdc-dms-rds-redshift.html" />
+  <meta property="article:author" content="Daniel Cruz Rodrigues" />
+  <meta property="article:published_time" content="2026-06-05" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "CDC with AWS DMS: RDS to Redshift Real-Time Replication",
+    "description": "How to build a production CDC pipeline from RDS PostgreSQL to Redshift using AWS DMS. Covers replication lag, LOB columns, schema drift, and the configurations that actually matter.",
+    "author": { "@type": "Person", "name": "Daniel Cruz Rodrigues", "url": "https://danielportfolio.eddesucesso.tech" },
+    "datePublished": "2026-06-05",
+    "publisher": { "@type": "Person", "name": "Daniel Cruz Rodrigues" },
+    "url": "https://danielportfolio.eddesucesso.tech/blog/aws-cdc-dms-rds-redshift.html",
+    "keywords": ["AWS DMS", "CDC", "Change Data Capture", "RDS PostgreSQL", "Amazon Redshift", "data replication", "data engineering", "ETL"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;800&display=swap" />
+  </noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" />
+
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: rgba(255,255,255,0.08);
+      --text-primary: #e6edf3; --text-dim: #8b949e; --text-muted: #6e7681;
+      --accent-cyan: #5bbad5; --accent-green: #10d5a0; --accent-amber: #f59e0b;
+      --font: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+      --transition: 0.2s ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text-primary); font-family: var(--font); font-size: 16px; line-height: 1.7; }
+    a { color: var(--accent-cyan); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: #fff; text-decoration: underline; }
+    code { font-family: var(--font-mono); font-size: 0.85em; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: var(--radius-sm); }
+    pre { background: #0d1117; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; overflow-x: auto; margin: 1.5rem 0; }
+    pre code { background: none; padding: 0; font-size: 0.875rem; line-height: 1.6; }
+    .site-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(13,17,23,0.95); backdrop-filter: blur(8px); z-index: 100; }
+    .logo { font-family: var(--font-mono); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.1em; color: var(--accent-cyan); }
+    nav { display: flex; gap: 1.5rem; }
+    nav a { font-size: 0.875rem; color: var(--text-dim); }
+    nav a:hover { color: var(--text-primary); text-decoration: none; }
+    .article-wrap { max-width: 820px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 700; line-height: 1.2; margin-bottom: 1rem; }
+    h2 { font-size: 1.35rem; font-weight: 700; margin: 2.5rem 0 0.75rem; color: var(--text-primary); border-left: 3px solid var(--accent-cyan); padding-left: 0.75rem; }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.75rem 0 0.5rem; color: var(--accent-green); }
+    p { margin-bottom: 1rem; color: var(--text-dim); }
+    p strong { color: var(--text-primary); }
+    ul, ol { margin: 0.75rem 0 1rem 1.5rem; color: var(--text-dim); }
+    li { margin-bottom: 0.35rem; }
+    li strong { color: var(--text-primary); }
+    blockquote { border-left: 3px solid var(--accent-amber); padding: 0.75rem 1rem; background: rgba(245,158,11,0.06); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 1.5rem 0; color: var(--text-dim); font-style: italic; }
+    .post-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 2rem; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .tag { background: rgba(91,186,213,0.1); border: 1px solid rgba(91,186,213,0.25); color: var(--accent-cyan); padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; }
+    .tag-green { background: rgba(16,213,160,0.1); border-color: rgba(16,213,160,0.25); color: var(--accent-green); }
+    .tag-amber { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: var(--accent-amber); }
+    .callout { border-radius: var(--radius-md); padding: 1rem 1.25rem; margin: 1.5rem 0; border: 1px solid; }
+    .callout-info { background: rgba(91,186,213,0.06); border-color: rgba(91,186,213,0.2); }
+    .callout-warn { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); }
+    .callout-tip  { background: rgba(16,213,160,0.06); border-color: rgba(16,213,160,0.2); }
+    .callout-label { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.35rem; }
+    .callout-info .callout-label { color: var(--accent-cyan); }
+    .callout-warn .callout-label { color: var(--accent-amber); }
+    .callout-tip  .callout-label { color: var(--accent-green); }
+    .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { background: rgba(255,255,255,0.04); color: var(--text-primary); font-weight: 600; text-align: left; padding: 0.6rem 0.875rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.55rem 0.875rem; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td strong { color: var(--text-primary); }
+    .diagram-wrap { background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin: 2rem 0; overflow-x: auto; }
+    .diagram-label { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; }
+    .diagram-interactive { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+    .diagram-interactive summary { padding: 0.6rem 1rem; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent-cyan); cursor: pointer; user-select: none; list-style: none; }
+    .diagram-interactive summary::-webkit-details-marker { display: none; }
+    .diagram-interactive summary::before { content: '▶ '; font-size: 0.6rem; }
+    .diagram-interactive[open] summary::before { content: '▼ '; }
+    .diagram-interactive .mxgraph-wrap { padding: 0.5rem; background: #ffffff; min-height: 500px; }
+    .back-link { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 2rem; transition: color 150ms; }
+    .back-link:hover { color: var(--accent-cyan); text-decoration: none; }
+    .site-footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+    .site-footer a { color: var(--text-muted); }
+    .site-footer a:hover { color: var(--accent-cyan); }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="logo">DCR // BLOG</span>
+    <nav>
+      <a href="https://danielportfolio.eddesucesso.tech/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Portfolio</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article class="article-wrap">
+
+      <a class="back-link" href="/blog/"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All posts</a>
+
+      <div class="post-meta">
+        <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> June 05, 2026</span>
+        <span><i class="fa-regular fa-clock" aria-hidden="true"></i> 12 min read</span>
+        <span class="tag">AWS DMS</span>
+        <span class="tag tag-green">CDC</span>
+        <span class="tag tag-amber">Redshift</span>
+      </div>
+
+      <h1>CDC with AWS DMS: RDS to Redshift Real-Time Replication</h1>
+
+      <h2>The replication lag that killed our SLA</h2>
+      <p>Our DMS task was configured with default settings and running fine in staging. Six hours after the first production cutover, the analytics team reported that their Redshift queries were returning data that was 4 hours stale. The DMS task was running. No errors in CloudWatch. The lag was invisible until we looked at the <strong>CDCLatencySource</strong> metric — it had been climbing since launch.</p>
+      <p>This is the most common DMS production failure: the task is green, replication is happening, but latency accumulates silently. This post covers the configurations, gotchas, and schema drift patterns that experience taught us the hard way.</p>
+
+      <h2>What DMS CDC actually does (and what it doesn't)</h2>
+      <p><strong>AWS Database Migration Service</strong> in CDC mode reads from the database's transaction log — the WAL in PostgreSQL — and replays those changes to the target. It does not query the source tables directly during replication. This means schema changes are not automatically captured unless you configure them explicitly.</p>
+      <p>DMS supports three modes: <strong>Full Load</strong> (one-time bulk copy), <strong>CDC Only</strong> (ongoing changes from a start position), and <strong>Full Load + CDC</strong> (bulk copy followed by continuous replication). For most production pipelines, Full Load + CDC is the right choice — it ensures you start from a consistent snapshot before streaming changes.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">ℹ How it works</div>
+        <p>DMS reads PostgreSQL WAL via logical replication. You must set <code>wal_level = logical</code> on the source RDS instance and create a replication slot. Each open replication slot holds WAL segments on disk — if DMS pauses for hours, your source storage fills up.</p>
+      </div>
+
+      <h3>PostgreSQL prerequisites</h3>
+      <pre><code class="language-sql">-- Required parameter group settings on RDS PostgreSQL
+-- wal_level = logical
+-- max_replication_slots = 10 (minimum 1 per DMS task)
+-- max_wal_senders = 10
+
+-- Verify replication slots
+SELECT slot_name, plugin, active, restart_lsn
+FROM pg_replication_slots;
+
+-- A DMS slot named "dms_slot" should appear after task start
+-- If inactive AND restart_lsn is old, your WAL disk usage is growing</code></pre>
+
+      <h2>The LOB column problem</h2>
+      <p><strong>Large Object (LOB) columns</strong> — TEXT, BYTEA, JSONB over 32KB — are the single most common cause of DMS performance degradation. By default, DMS handles LOBs in "Limited LOB Mode" with a 32KB truncation limit. Any JSON payload over 32KB gets silently truncated at the target.</p>
+      <p>You have three options. <strong>Limited LOB Mode</strong> (default): fast, truncates at your configured limit. <strong>Full LOB Mode</strong>: fetches the entire column value, row by row — 5–10× slower than limited mode. <strong>Inline LOB Mode</strong>: available for source databases that support it; fetches LOBs inline with the row data. For PostgreSQL → Redshift with JSONB columns, inline mode is usually the correct answer.</p>
+
+      <pre><code class="language-json">// DMS Task Settings - LOB configuration
+{
+  "TargetMetadata": {
+    "LobMaxSize": 65536,
+    "SupportLobs": true,
+    "FullLobMode": false,
+    "InlineLobMaxSize": 65536
+  },
+  "FullLoadSettings": {
+    "TargetTablePrepMode": "DO_NOTHING"
+  }
+}</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>Full LOB Mode fetches each LOB column in a separate SELECT statement per row. At 100K rows with JSONB columns, a full load that would take 4 minutes in Limited LOB Mode can take 45 minutes in Full LOB Mode. Profile your LOB sizes before choosing.</p>
+      </div>
+
+      <h2>Schema drift: the silent killer</h2>
+      <p>DMS does not propagate DDL changes by default. When a developer adds a column to the source PostgreSQL table, DMS keeps replicating — but the new column is silently dropped. Redshift never sees it. This was the source of a data quality incident that took 3 days to diagnose because the missing column was a nullable field that passed all NOT NULL validations downstream.</p>
+      <p>DMS does have DDL handling via <strong>table-mapping rules</strong>, but it requires explicit configuration and only supports a subset of DDL operations (ADD COLUMN, DROP COLUMN, RENAME COLUMN, ALTER COLUMN for data type changes in some engine combinations).</p>
+
+      <pre><code class="language-json">// table-mapping.json — enable DDL propagation
+{
+  "rules": [
+    {
+      "rule-type": "selection",
+      "rule-id": "1",
+      "rule-name": "select-all",
+      "object-locator": { "schema-name": "public", "table-name": "%" },
+      "rule-action": "include"
+    },
+    {
+      "rule-type": "transformation",
+      "rule-id": "2",
+      "rule-name": "schema-drift-handler",
+      "rule-action": "convert-uppercase",
+      "rule-target": "schema"
+    }
+  ]
+}</code></pre>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>DMS DDL support for PostgreSQL → Redshift is limited. ALTER TABLE ADD COLUMN is supported. RENAME TABLE is not. Type changes from INTEGER to BIGINT will silently fail if Redshift has already created the column. Always test DDL operations in staging before relying on automatic propagation in production.</p>
+      </div>
+
+      <h2>Architecture: RDS PostgreSQL → DMS → S3 → Redshift</h2>
+      <p>The most reliable pattern for high-throughput CDC is not direct DMS → Redshift. It is <strong>DMS → S3 → Redshift COPY</strong>. Direct DMS to Redshift uses individual INSERT/UPDATE/DELETE statements — at 10,000 changes/second, Redshift's row-level operation overhead dominates. S3 as an intermediate stage allows batch COPY, which is 10–100× faster for Redshift ingestion.</p>
+
+      <div class="diagram-wrap">
+        <p class="diagram-label">// CDC pipeline: RDS PostgreSQL → DMS → Redshift via S3</p>
+        <img src="images/aws-cdc-dms-rds-redshift-architecture.png"
+             alt="AWS DMS CDC pipeline from RDS PostgreSQL through S3 to Amazon Redshift"
+             style="width:100%;background:#fff;padding:1rem;border-radius:8px;" />
+      </div>
+
+      <h3>Terraform: DMS replication instance and task</h3>
+      <pre><code class="language-hcl">resource "aws_dms_replication_instance" "main" {
+  replication_instance_id    = "prod-cdc-instance"
+  replication_instance_class = "dms.r5.xlarge"
+  allocated_storage          = 100
+  multi_az                   = true
+  publicly_accessible        = false
+  vpc_security_group_ids     = [aws_security_group.dms.id]
+  replication_subnet_group_id = aws_dms_replication_subnet_group.main.id
+}
+
+resource "aws_dms_replication_task" "rds_to_s3" {
+  replication_task_id      = "rds-postgres-to-s3-cdc"
+  migration_type           = "full-load-and-cdc"
+  replication_instance_arn = aws_dms_replication_instance.main.replication_instance_arn
+  source_endpoint_arn      = aws_dms_endpoint.postgres_source.endpoint_arn
+  target_endpoint_arn      = aws_dms_endpoint.s3_target.endpoint_arn
+
+  replication_task_settings = jsonencode({
+    TargetMetadata = {
+      SupportLobs      = true
+      FullLobMode      = false
+      LobMaxSize       = 65536
+      InlineLobMaxSize = 65536
+    }
+    FullLoadSettings = {
+      TargetTablePrepMode = "DO_NOTHING"
+      MaxFullLoadSubTasks = 8
+    }
+    Logging = {
+      EnableLogging = true
+      LogComponents = [
+        { Id = "SOURCE_UNLOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TARGET_LOAD",   Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TASK_MANAGER",  Severity = "LOGGER_SEVERITY_DEFAULT" }
+      ]
+    }
+  })
+}</code></pre>
+
+      <h2>Replication lag: the metrics that matter</h2>
+      <p>DMS publishes four CloudWatch metrics for CDC lag. Most teams only watch <strong>CDCLatencySource</strong> (time between a change in the source and DMS reading it) and miss <strong>CDCLatencyTarget</strong> (time between DMS reading a change and writing it to the target). The real end-to-end latency is the sum of both.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>What it measures</th>
+              <th>Alert threshold</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>CDCLatencySource</strong></td><td>WAL read lag (source side)</td><td>&gt; 60s</td></tr>
+            <tr><td><strong>CDCLatencyTarget</strong></td><td>Write lag (target side)</td><td>&gt; 120s</td></tr>
+            <tr><td><strong>CDCThroughputRowsSource</strong></td><td>Rows read per second</td><td>&lt; 100 sustained</td></tr>
+            <tr><td><strong>CDCThroughputRowsTarget</strong></td><td>Rows written per second</td><td>Drops without source drop</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">✓ Tip</div>
+        <p>Set CloudWatch alarms on both CDCLatencySource and CDCLatencyTarget. A spike in CDCLatencyTarget with flat CDCLatencySource means the target (S3 or Redshift) is the bottleneck — not the source. These require different fixes: S3 endpoint settings vs Redshift COPY batch size.</p>
+      </div>
+
+      <h2>What DMS costs at production scale</h2>
+      <p>DMS pricing has two components: <strong>replication instance hours</strong> and <strong>data transfer</strong>. A <code>dms.r5.xlarge</code> (the minimum recommended for multi-table CDC) costs $0.48/hour — $345/month. Add S3 PUT costs for staging files ($0.005 per 1,000 requests) and Redshift COPY compute. For a pipeline processing 50M changes/day, expect $450–600/month total for DMS + S3 staging.</p>
+
+      <div class="callout callout-warn">
+        <div class="callout-label">⚠ Watch out</div>
+        <p>DMS charges even when the task is stopped — you pay for the replication instance regardless of task state. Delete the replication instance (not just pause the task) during extended maintenance windows to avoid unnecessary charges.</p>
+      </div>
+
+      <h2>When DMS is the wrong tool</h2>
+      <p>DMS is the right choice when your source is RDS or Aurora and your target is a supported AWS service. It is the wrong choice when: (1) your source has &gt;1,000 tables — DMS task management at scale becomes a full-time job; (2) you need sub-second latency — DMS delivers 2–15 second latency under load, not milliseconds; (3) you need to transform data during replication — use Glue or a Kafka-based pipeline instead. For Oracle → Redshift migrations with complex transformations, Debezium on MSK Connect gives more flexibility at similar cost.</p>
+
+      <div style="margin-top:3rem;padding:1.25rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;gap:1rem;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.2rem;">Daniel Cruz Rodrigues</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">Senior Data Engineer · AWS · Cloud Architecture</div>
+          <div style="font-size:0.8rem;color:var(--text-dim);">
+            7× AWS certified. Building data platforms on AWS — Glue, EMR, Kinesis, Redshift, Lambda.
+            Open to senior data engineering roles internationally.
+          </div>
+          <div style="margin-top:0.75rem;display:flex;gap:1rem;font-size:0.8rem;">
+            <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener" style="color:var(--accent-cyan);">LinkedIn</a>
+            <a href="https://danielportfolio.eddesucesso.tech/" style="color:var(--accent-cyan);">Portfolio</a>
+          </div>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="yr"></span> Daniel Cruz Rodrigues &mdash;
+      <a href="https://www.linkedin.com/in/danielcruzbianalytics/" target="_blank" rel="noopener">LinkedIn</a> &middot;
+      <a href="https://danielportfolio.eddesucesso.tech/">Portfolio</a>
+    </p>
+  </footer>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>
