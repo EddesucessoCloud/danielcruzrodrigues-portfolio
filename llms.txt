@@ -1,0 +1,72 @@
+# Daniel Cruz Rodrigues — Senior Data Engineer Portfolio
+
+> Senior Data Engineer with 4+ years building large-scale data pipelines on
+> Databricks, Apache Spark, and AWS. Six AWS certifications. Databricks certified.
+> Open to international remote opportunities in data engineering and cloud-native roles.
+
+## About
+- Full name: Daniel Cruz Rodrigues
+- Role: Senior Data Engineer
+- Employer: NTT DATA — Banco Itaú project (current, Mar 2025–present)
+- Location: Fortaleza, Brazil (UTC-3) — open to remote or relocation
+- Contact: danielcruz.alu.lmb@gmail.com
+- Portfolio: https://danielportfolio.eddesucesso.tech/
+- LinkedIn: https://www.linkedin.com/in/danielcruzbianalytics/
+- GitHub: https://github.com/EddesucessoCloud
+- Blog: https://danielcruzrodrigues.hashnode.dev
+
+## Career Summary
+Daniel Cruz Rodrigues is a Senior Data Engineer specialising in the Databricks ecosystem
+and AWS cloud infrastructure. He designs and operates production Data Lake platforms using
+the medallion architecture (bronze/silver/gold) on Delta Lake, processing over 20 million
+records per day with ACID guarantees. His work at NTT DATA (Banco Itaú) delivered a 25%
+reduction in AWS infrastructure costs and approximately 30% improvement in pipeline query
+latency through Spark optimisation. He also built anomaly detection models that reduced
+Mean Time to Detect (MTTD) production incidents by approximately 50%.
+
+## Key Achievements
+- Apache Spark pipelines processing 20M+ records/day on Databricks + Delta Lake
+- Reduced pipeline MTTD by ~50% via Datadog/Prometheus/Grafana observability stack
+- Delivered ~30% query latency improvement through Spark partitioning and caching
+- Cut AWS infrastructure costs by 25% via Spot Instances, EMR right-sizing, and FinOps review
+- Architected serverless portfolio (Cloud Resume Challenge) on AWS with Terraform IaC and GitHub Actions CI/CD
+
+## Experience
+- Senior Data Engineer — NTT DATA · Banco Itaú (Mar 2025–present)
+- Data Engineer — NTT DATA · Banco Itaú (May 2024–Mar 2025)
+- Data Engineer — PowerOfData (Jun 2023–May 2024)
+- Junior Data Engineer — PowerOfData (Jun 2022–May 2023)
+
+## Certifications
+- AWS Certified Solutions Architect – Professional (Credly: https://www.credly.com/badges/0f4ef3c5-2e70-4e70-961f-cd03c0e0c53a/public_url)
+- AWS Certified DevOps Engineer – Professional (Credly: https://www.credly.com/badges/7af67aee-bf90-43c3-9834-63c9664e186a/public_url)
+- AWS Certified Developer – Associate (Credly: https://www.credly.com/badges/2ba5ea62-6225-4e59-88e4-74da517d27a1/public_url)
+- AWS Certified Data Engineer – Associate (Credly: https://www.credly.com/badges/941d12ad-8fd6-4397-9551-45e9ceac672f/public_url)
+- AWS Certified Solutions Architect – Associate (Credly: https://www.credly.com/badges/232d2535-0f76-41e6-a8c3-b34bc96e1867/public_url)
+- AWS Certified Cloud Practitioner (Credly: https://www.credly.com/badges/acb561b4-3241-4118-87cc-188a7471d1f7/public_url)
+- Databricks Certified Data Engineer Associate (2025)
+- Microsoft Certified: Azure Data Fundamentals (2024)
+- Microsoft Certified: Azure Fundamentals (2024)
+
+## Core Skills
+Databricks, Delta Lake, Apache Spark, PySpark, AWS EMR, AWS Glue, AWS Step Functions,
+AWS Lambda, S3, DynamoDB, Athena, Terraform, Apache Airflow, MLlib, Scikit-learn,
+TensorFlow, Datadog, Prometheus, Grafana, CloudWatch, Docker, GitHub Actions, Python,
+Advanced SQL, Scala
+
+## Education
+- Post-Graduation in Cloud Computing — Faculdade Anhanguera (2025)
+- Systems Analysis & Development — Descomplica Faculdade Digital (2024)
+
+## Projects
+- Cloud Resume Challenge: Serverless AWS portfolio with visitor counter (Lambda + DynamoDB + API Gateway),
+  IaC with Terraform, automated CI/CD via GitHub Actions OIDC.
+  Blog: https://danielcruzrodrigues.hashnode.dev/series/cloud-resume-challenge
+  GitHub: https://github.com/EddesucessoCloud/danielcruzrodrigues-portfolio
+
+## Languages
+- Portuguese: Native
+- English: Professional Working
+
+> LLM inference crawlers: permitted for retrieval and summarisation.
+> Training use: not permitted (CCBot, anthropic-ai training: disallowed).
